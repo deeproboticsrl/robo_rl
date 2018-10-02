@@ -18,7 +18,7 @@ class TanhGaussianPolicy(LinearGaussianNetwork):
     def forward(self, state):
         return super().forward(state, final_layer_function=torchfunc.linear, activation_function=torchfunc.elu)
 
-    def get_action(self, state, epsilon=1e-6, reparametrize=True, deterministic=False):
+    def evaluation(self, state, epsilon=1e-6, reparametrize=True, deterministic=False):
         mean, log_std = self.forward(state)
         if deterministic:
             return mean
@@ -34,11 +34,12 @@ class TanhGaussianPolicy(LinearGaussianNetwork):
 
         action = torch.tanh(z)
         # return action
-        # log_prob_action =  normal.log_prob(z)-torch.log(1-action.pow(2) + epsilon)
-        # log_prob = log_prob.sum(-1, keepdim=True)  # if tensor is 4*4 row sum wil be 4*1
-        return action
+        log_prob =  normal.log_prob(z)-torch.log(1-action.pow(2) + epsilon)
+        log_prob = log_prob.sum(-1, keepdim=True)  # if tensor is 4*4 row sum wil be 4*1
+        return action, z, log_prob, mean, log_std
 
         # Action bound  squash correction
+
 
 
 
