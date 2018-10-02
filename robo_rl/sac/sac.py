@@ -106,7 +106,7 @@ class SAC:
 
         if update_number % self.target_update_interval==0  and self.deterministic==False:
             soft_update(self.value,self.value_target,self.t)
-            
+
 
 
 
