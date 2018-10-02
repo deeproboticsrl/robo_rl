@@ -4,7 +4,7 @@ from torch.optim import Adam
 from robo_rl.sac.tanh_gaussian_policy import TanhGaussianPolicy
 from robo_rl.common.networks.value_network import QNetwork, ValueNetwork
 
-### ASSUMPTION : non deterministic
+# ASSUMPTION : non deterministic
 def soft_update(original , target, t):
     # zip(a,b) is same as [a.b]
     for original_param,target_param  in zip(original.parameters(), target.parameters()):
