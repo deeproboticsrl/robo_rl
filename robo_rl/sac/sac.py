@@ -1,7 +1,7 @@
 import torch
 from torch.optim import Adam
 
-from robo_rl.sac.policy import TanhGaussianPolicy
+from robo_rl.sac.tanh_gaussian_policy import TanhGaussianPolicy
 from robo_rl.common.networks.value_network import QNetwork, ValueNetwork
 
 ### ASSUMPTION : non deterministic
