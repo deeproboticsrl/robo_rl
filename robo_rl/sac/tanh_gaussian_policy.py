@@ -4,7 +4,7 @@ from torch.distributions import Normal
 from robo_rl.common.networks.linear_network import LinearGaussianNetwork
 
 ## GMM policy L to be implemented
-
+# hidden_dim is now array of hidden layers e.g =[20,30] First hidden layer has 20 units and 2nd has 30 units
 
 class TanhGaussianPolicy(LinearGaussianNetwork):
 
