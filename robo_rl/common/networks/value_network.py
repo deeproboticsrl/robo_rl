@@ -12,7 +12,7 @@ class ValueNetwork(LinearNetwork):
         super().__init__(layers_size)
 
     def forward(self, state):
-        return super().forward(state, torchfunc.linear, torchfunc.elu)
+        return super().forward(state, final_layer_function=torchfunc.linear, activation_function=torchfunc.elu)
 
 
 class QNetwork(LinearNetwork):
@@ -25,7 +25,7 @@ class QNetwork(LinearNetwork):
 
     def forward (self, state, action):
         x = torch.cat([state, action], 1)
-        return super().forward(x, torchfunc.linear, torchfunc.elu)
+        return super().forward(x, final_layer_function=torchfunc.linear, activation_function=torchfunc.elu)
 
 
 

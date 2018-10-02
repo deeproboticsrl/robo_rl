@@ -2,14 +2,14 @@ import torch
 from torch.optim import Adam
 
 from robo_rl.sac.policy import TanhGaussianPolicy
-from robo_rl.sac.value_network import QNetwork, ValueNetwork
+from robo_rl.common.networks.value_network import QNetwork, ValueNetwork
 
 ### ASSUMPTION : non deterministic
 def soft_update(original , target, t):
     # zip(a,b) is same as [a.b]
     for original_param,target_param  in zip(original.parameters(), target.parameters()):
         target_param.data.copy_(original_param.data*t + target_param*(1-t))
-        ## check copy_ parameter : SOmething on cpi or gpu, also no need for return as it changes in self
+        ## check copy_ parameter : Something on cpu or gpu, also no need for return as it changes in self
 
 def hard_update(original,target):
     for original_param,target_param in zip(original.parameters(),target.parameters()):
@@ -43,11 +43,6 @@ class SAC:
 
         self.critic = QNetwork(self.state_dim, self.action_dim, self.hidden_dim)
         self.critic_optimizer- Adam(self.policy.parameters(),lr=self.lr)
-
-
-
-
-
 
 
 ## batch is dict from replay buffer

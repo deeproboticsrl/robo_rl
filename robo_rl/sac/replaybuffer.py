@@ -13,7 +13,7 @@ class ReplayBuffer:
         :params: transition at each time step
 
         """
-        if len(self.buffer) > self.size :
+        if len(self.buffer) > self.size:
             self.buffer.append(None)
         self.buffer[self.position] = [state, action, reward , next_state, done]
 

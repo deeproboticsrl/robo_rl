@@ -9,3 +9,4 @@ def xavier_initialisation(module):
 def print_all_modules(network):
     for idx, module in enumerate(network.modules()):
         print(idx, '->', module)
+

@@ -9,8 +9,8 @@ class ObsGAIL:
         self.env = env
         self.current_iteration = 1
 
-    def train(self,num_iterations=100, learning_rate=1e-3, learning_rate_decay=0.5,
-              learning_rate_decay_training_steps=1e5 ):
+    def train(self, num_iterations=100, learning_rate=1e-3, learning_rate_decay=0.5,
+              learning_rate_decay_training_steps=1e5):
 
         for iteration in range(self.current_iteration,self.current_iteration+num_iterations):
             a = 5
