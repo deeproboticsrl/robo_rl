@@ -2,7 +2,7 @@ import torch
 from torch.optim import Adam
 
 from robo_rl.sac.tanh_gaussian_policy import TanhGaussianPolicy
-from robo_rl.common.networks.value_network import QNetwork, ValueNetwork
+from robo_rl.common.networks.value_network import LinearQNetwork, LinearValueNetwork
 
 ### ASSUMPTION : non deterministic
 def soft_update(original , target, t):
