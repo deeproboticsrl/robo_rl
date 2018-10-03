@@ -4,7 +4,7 @@ from torch.optim import Adam
 from robo_rl.sac.tanh_gaussian_policy import TanhGaussianPolicy
 from robo_rl.common.networks.value_network import LinearQNetwork, LinearValueNetwork
 
-### ASSUMPTION : non deterministic
+# ASSUMPTION : non deterministic
 def soft_update(original , target, t):
     # zip(a,b) is same as [a.b]
     for original_param,target_param  in zip(original.parameters(), target.parameters()):
@@ -32,17 +32,17 @@ class SAC:
 
 
 
-        self.value =ValueNetwork(self.state_dim,self.hidden_dim)
-        self.value_target =ValueNetwork(self.state_dim,self.hidden_dim)
+        self.value =LinearValueNetwork(self.state_dim,[self.hidden_dim,self.hidden_dim])
+        self.value_target = LinearValueNetwork(self.state_dim,[self.hidden_dim,self.hidden_dim])
         self.value_optimizer=Adam(self.value.parameters(),lr=self.lr)
         hard_update(self.value,self.value_target)
 
 
-        self.policy = TanhGaussianPolicy(self.state_dim,self.action_dim, self.hidden_dim)
+        self.policy = TanhGaussianPolicy(self.state_dim,self.action_dim, [self.hidden_dim,self.hidden_dim])
         self.policy_optimizer= Adam(self.policy.parameters(), lr=self.lr)
 
-        self.critic = QNetwork(self.state_dim, self.action_dim, self.hidden_dim)
-        self.critic_optimizer- Adam(self.policy.parameters(),lr=self.lr)
+        self.critic = LinearQNetwork(self.state_dim, self.action_dim, [self.hidden_dim,self.hidden_dim])
+        self.critic_optimizer = Adam(self.policy.parameters(),lr=self.lr)
 
 
 ## batch is dict from replay buffer

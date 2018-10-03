@@ -1,7 +1,8 @@
 import torch.nn as nn
 from torch.distributions import Normal
 
-
+# TODO confirm layer norm
+#
 class LinearNetwork(nn.Module):
 
     def __init__(self, layers_size, layer_norm=True):
