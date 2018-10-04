@@ -1,8 +1,8 @@
 import gym
-from abc import ABC,abstractmethod
+from abc import ABC, abstractmethod
 
 
-class GAILEnv(gym.Env,ABC):
+class GAILEnv(gym.Env, ABC):
 
     """
     Feature mapper is a function from states and context to features
@@ -11,24 +11,25 @@ class GAILEnv(gym.Env,ABC):
     partial mapper ----- part of state space  -> feature
     complex mapper ----- derive complex features using state dependent on context
     """
-    def __init__(self,feature_mapper=None):
+    def __init__(self, feature_mapper=None):
         super().__init__(self)
-        if(feature_mapper):
+        if feature_mapper:
             self.set_feature_mapper(feature_mapper)
         else:
             self.set_feature_mapper(self.direct_mapper)
 
-    def extract_features(self,state,context):
+    def extract_features(self, state, context):
         """converts state s to feature z, given context c"""
-        return self.feature_mapper(state,context)
+        return self.feature_mapper(state, context)
 
-    def set_feature_mapper(self,feature_mapper):
+    def set_feature_mapper(self, feature_mapper):
         self.feature_mapper = feature_mapper
 
-    def direct_mapper(self,state,context):
+    @staticmethod
+    def direct_mapper(state, context):
         return state
 
     @abstractmethod
-    def play_expert(self):
+    def play_expert(self, expert_trajectory):
         pass
 

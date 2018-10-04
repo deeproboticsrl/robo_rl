@@ -3,13 +3,14 @@ from gym.envs.mujoco.ant import AntEnv
 import numpy as np
 
 
-class AntGAILEnv(AntEnv,GAILEnv):
+class AntGAILEnv(AntEnv, GAILEnv):
 
-    def __init__(self,feature_mapper=None):
+    def __init__(self, feature_mapper=None):
         AntEnv.__init__(self)
-        GAILEnv.__init__(self,feature_mapper)
+        GAILEnv.__init__(self, feature_mapper)
 
-    def partial_feature_mapper(self,state,context=None):
+    @staticmethod
+    def partial_feature_mapper(state, context=None):
         """returns rotational position and velocity for joint of the 4 legs and translational for torso"""
         features = []
         # torso qpos
@@ -22,7 +23,7 @@ class AntGAILEnv(AntEnv,GAILEnv):
         features.extend(np.array(state[23:31]))
         return features
 
-    def play_expert(self,expert_trajectory):
+    def play_expert(self, expert_trajectory):
         """Expert trajectory is a list of observations"""
         for i in range(len(expert_trajectory)):
             """observations for qpos are got using self.sim.data.qpos.flat where qpos has length 15"""
