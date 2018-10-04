@@ -40,7 +40,20 @@ class TanhGaussianPolicy(LinearGaussianNetwork):
 
         # Action bound  squash correction
 
+    def get_action(self,state,reparameterize=True,deterministic=False):
+        mean,log_std =self.forward(state)
+        if deterministic:
+            return mean
+        std = log_std.exp()
 
+        normal=Normal(mean,std)
+        if reparameterize:
+            z=normal.rsample()
+        else:
+            z=normal.sample()
+        action = torch.tanh(z)
+
+        return action
 
 
 
