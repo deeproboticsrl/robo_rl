@@ -3,6 +3,7 @@ import robo_rl.common.utils.utils as utils
 import torch
 import robo_rl.common.utils.nn_utils as nn_utils
 from torchviz import make_dot
+import robo_rl.robo_rl.common.utils.nn_utils
 
 layer_sizes = [2, 4, 3]
 discriminator = Discriminator(layer_sizes)
