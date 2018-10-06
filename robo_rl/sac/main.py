@@ -1,11 +1,11 @@
 import argparse
-
+from tensorboardX import SummaryWriter
 import gym
 import numpy as np
 import torch
 from osim.env import ProstheticsEnv
-from robo_rl.sac.softactorcritic import SAC
 from robo_rl.common.replaybuffer import ReplayBuffer
+from robo_rl.sac.softactorcritic import SAC
 
 parser = argparse.ArgumentParser(description='PyTorch on fire')
 parser.add_argument('--env_name', default="ProstheticsEnv")
@@ -17,16 +17,19 @@ parser.add_argument('--scale_reward', type=int, default=10,
                     help="reward scaling humannoid_v1=20, humnanoid_rllib=10, other mujoco=5")
 parser.add_argument('--reparam', type=bool, default=True, help="True if reparameterization trick is applied")
 parser.add_argument('--target_update_interval', type=int, default=1,
-                    help='used in case of hard update with or without td3')
+                    help="used in case of hard update with or without td3")
 parser.add_argument('--hidden_dim', type=int, default=256, help='no of hidden units ')
 parser.add_argument('--buffercapacity', type=int, default=1000000, help='buffer capacity')
 parser.add_argument('--sample_batch_size', type=int, default=256, help='sample from replay buffer')
+parser.add_argument('--max_time_steps', type=int, default=10000, help='max number of env timesteps per episodes')
+parser.add_argument('--num_episodes', type=int, default=10000, help='number of episodes')
+parser.add_argument('--updates_per_step',type=int,default=1,help='updates per step')
 args = parser.parse_args()
 if args.env_name == "ProstheticsEnv":
     env = ProstheticsEnv()
 
 else:
-    ## Need to normalize the actions
+    ## Need to normalize the action_space
     env = gym.make(args.env_name)
 
 env.seed(args.env_seed)
@@ -41,15 +44,35 @@ sacobj = SAC(action_dim, state_dim, args.hidden_dim, args.discount_factor, args.
              args.deterministic, args.target_update_interval, args.lr, args.soft_update_tau, args.td3)
 
 buffer = ReplayBuffer(capacity=args.buffercapacity)
-num_iteration = 10000
+rewards=[]
+update_count = 0
 
-for i in range(num_iteration):
+# number of episodes
+for i in range(args.num_episodes):
     state = env.reset()
-    action = sacobj.policy.get_action(state)
-    observation, reward, done, _ = env.step(action)
-    sample = dict(state=state, action=action, reward=reward, next_state=observation, done=done)
-    buffer.add(sample)
-    if i > args.sample_batch_size:
+    done = False
+    timestep = 0
 
-        batch = buffer.sample(batch_size=args.sample_batch_size)
-        sacobj.policy_update(batch, update_number=i)
+    while True:
+        episode_reward=0
+        action = sacobj.policy.get_action(state)
+        observation, reward, done, _ = env.step(action)
+        sample = dict(state=state, action=action, reward=reward, next_state=observation, done=done)
+        buffer.add(sample)
+        if len(buffer) > args.sample_batch_size:
+            for i in range(args.updates_per_step):
+                update_count += 1
+                batch = buffer.sample(batch_size=args.sample_batch_size)
+                sacobj.policy_update(batch, update_number=update_count)
+
+            #assumed 1 update for 1env step
+
+        episode_reward +=reward
+        state = observation
+        timestep += 1
+        if done:
+            break
+        if timestep > args.max_time_steps:
+            break
+
+# TODO :proofread

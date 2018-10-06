@@ -1,13 +1,16 @@
 import torch
 import torch.nn as nn
 from torch.optim import Adam
-import numpy as np
 from robo_rl.sac.tanh_gaussian_policy import TanhGaussianPolicy
 from robo_rl.common.networks.value_network import LinearQNetwork, LinearValueNetwork
-from robo_rl.common.utils.nn_utils import xavier_initialisation
+import robo_rl.common.utils.nn_utils as nn_utils
+import robo_rl.common.utils.utils as utils
+import os
 
 
 # ASSUMPTION : non deterministic
+# TODO dfjbnj
+
 def soft_update(original, target, t=1e-2):
     # zip(a,b) is same as [a.b]
     for original_param, target_param in zip(original.parameters(), target.parameters()):
@@ -19,9 +22,15 @@ def hard_update(original, target):
     for original_param, target_param in zip(original.parameters(), target.parameters()):
         target_param.data.copy_(original_param.data)
 
+def n_critics(state_dim,action_dim,hidden_array,number_q):
+    q_networks=[]
+    for i in range(number_q):
+        q_networks.append(LinearQNetwork(state_dim,action_dim,hidden_array))
+
+    return q_networks
 
 class SAC:
-    ## TODO
+    ## TODO select action
     def __init__(self, action_dim, state_dim, hidden_dim=256, discount_factor=0.05, scale_reward=3,
                  reparam=True, deterministic=False, target_update_interval=300, lr=1e-3, soft_update_tau=1e-2,
                  td3=False):
@@ -42,14 +51,13 @@ class SAC:
 
         self.value = LinearValueNetwork(self.state_dim, [self.hidden_dim, self.hidden_dim])
         self.value_target = LinearValueNetwork(self.state_dim, [self.hidden_dim, self.hidden_dim])
-        self.value_optimizer = Adam(self.value.parameters(), lr=self.lr)
-        hard_update(self.value, self.value_target)
-
         self.policy = TanhGaussianPolicy(self.state_dim, self.action_dim, [self.hidden_dim, self.hidden_dim])
+        self.critic = n_critics(self.state_dim, self.action_dim, [self.hidden_dim, self.hidden_dim],number_q=2)
+        nn_utils.xavier_initialisation(self.value, self.policy, self.critic)
+        self.value_optimizer = Adam(self.value.parameters(), lr=self.lr)
         self.policy_optimizer = Adam(self.policy.parameters(), lr=self.lr)
-
-        self.critic = LinearQNetwork(self.state_dim, self.action_dim, [self.hidden_dim, self.hidden_dim])
         self.critic_optimizer = Adam(self.policy.parameters(), lr=self.lr)
+        hard_update(self.value, self.value_target)
 
     ## batch is dict from replay buffer
     def policy_update(self, batch, update_number):
@@ -59,8 +67,7 @@ class SAC:
         next_state_batch = batch['next_state']
         done_batch = batch['done']
         # not_done_batch = np.logical_not(done_batch)  ## batch_size * 1
-        exp_q1 = self.critic(state_batch, action_batch)
-        exp_q2 = self.critic(state_batch, action_batch)
+        exp_q1,exp_q2 = self.critic(state_batch, action_batch)
         new_action, z, log_prob, mean, log_std = self.policy.evaluation(state_batch, reparametrize=self.reparam)
 
         # now to stabilize training for soft value
@@ -120,3 +127,33 @@ class SAC:
         else:
             if self.deterministic == False:
                 soft_update(self.value, self.value_target, self.soft_update_tau)
+
+    def save_model(self, env_name, actor_path, critic_path, value_path, info=1):
+
+        if actor_path is None:
+            actor_path = os.makedirs('/model/{}/actor_{}'.format(info, env_name), exist_ok=True)
+        if critic_path is None:
+            critic_path = os.makedirs('/model/{}/critic_{}'.format(info,env_name),exist_ok=True)
+        if value_path is None:
+            value_path = os.makedirs('/model/{}/value_{}'.format(info,env_name),exist_ok=True)
+
+        utils.print_heading("Saving actor,critic,value network parameters")
+        torch.save(self.policy.state_dict(),actor_path)
+        torch.save(self.value.state_dict(),value_path)
+        torch.save(self.critic.state_dict(),critic_path)
+        utils.heading_decorator(bottom=True,print_req=True)
+
+    def load_model(self,model,actor_path,critic_path,value_path):
+        utils.print_heading("Loading models from paths: \n actor:{} \n critic:{} \n value:{}".format(actor_path,critic_path,value_path))
+        if actor_path is not None:
+            self.policy.load_state_dict(torch.load(actor_path))
+        if critic_path is not None:
+            self.critic.load_state_dict(torch.load(critic_path))
+        if value_path is not None:
+            self.value.load_state_dict(torch.load(value_path))
+
+        utils.print_heading('loading done')
+
+
+
+
