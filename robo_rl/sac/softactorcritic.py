@@ -1,32 +1,23 @@
-import torch
-import torch.nn as nn
-from torch.optim import Adam
-from robo_rl.sac.gaussian_policy import GaussianPolicy
-from robo_rl.common.networks.value_network import LinearQNetwork, LinearValueNetwork
+import os
+
 import robo_rl.common.utils.nn_utils as nn_utils
 import robo_rl.common.utils.utils as utils
-import os
+import torch
+import torch.nn as nn
+from robo_rl.common.networks.value_network import LinearQNetwork, LinearValueNetwork
+from robo_rl.common.utils.nn_utils import soft_update, hard_update
+from robo_rl.sac.gaussian_policy import GaussianPolicy
+from torch.optim import Adam
 
 
 # ASSUMPTION : non deterministic
-# TODO dfjbnj
-
-def soft_update(original, target, t=1e-2):
-    # zip(a,b) is same as [a.b]
-    for original_param, target_param in zip(original.parameters(), target.parameters()):
-        target_param.data.copy_(original_param.data * t + target_param * (1 - t))
-        ## check copy_ parameter : Something on cpu or gpu, also no need for return as it changes in self
 
 
-def hard_update(original, target):
-    for original_param, target_param in zip(original.parameters(), target.parameters()):
-        target_param.data.copy_(original_param.data)
-
-
-def n_critics(state_dim, action_dim, hidden_array, number_q):
+def n_critics(state_dim, action_dim, hidden_dim, num_q):
     q_networks = []
-    for i in range(number_q):
-        q_networks.append(LinearQNetwork(state_dim, action_dim, hidden_array))
+
+    for i in range(num_q):
+        q_networks.append(LinearQNetwork(state_dim=state_dim, action_dim=action_dim, hidden_dim=hidden_dim))
 
     return q_networks
 
@@ -115,19 +106,19 @@ class SAC:
         value_loss.backward()
         self.value_optimizer.step()
 
-        if self.td3 == False:
+        if self.td3 is False:
             self.policy_optimizer.zero_grad()
             policy_loss.backward()
             self.policy_optimizer.step()
 
         if self.target_update_interval > 1:
 
-            if update_number % self.target_update_interval == 0 and self.deterministic == False:
+            if update_number % self.target_update_interval == 0 and self.deterministic is False:
                 hard_update(self.value, self.value_target)
                 # TODO TD3 update
 
         else:
-            if self.deterministic == False:
+            if self.deterministic is False:
                 soft_update(self.value, self.value_target, self.soft_update_tau)
 
     def save_model(self, env_name, actor_path, critic_path, value_path, info=1):
