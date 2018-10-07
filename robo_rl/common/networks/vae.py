@@ -8,7 +8,8 @@ from torch.distributions import Normal
 
 class LinearVAE(nn.Module):
 
-    def __init__(self, encoder_dim, bottleneck_size, decoder_dim):
+    def __init__(self, encoder_dim, bottleneck_size, decoder_dim, final_layer_function=no_activation,
+                 activation_function=torchfunc.elu):
         """
         Example
         encoder_dim = [15,5]
@@ -22,17 +23,19 @@ class LinearVAE(nn.Module):
         decoder_layers_size = [bottleneck_size]
         decoder_layers_size.extend(decoder_dim)
 
-        self.encoder = LinearGaussianNetwork(encoder_layers_size)
-        self.decoder = LinearNetwork(decoder_layers_size)
+        self.encoder = LinearGaussianNetwork(encoder_layers_size,final_layer_function=final_layer_function,
+                                             activation_function=activation_function)
+        self.decoder = LinearNetwork(decoder_layers_size,final_layer_function=final_layer_function,
+                                     activation_function=activation_function)
 
-    def encode(self, x, final_layer_function=no_activation, activation_function=torchfunc.elu):
-        return self.encoder.forward(x, final_layer_function, activation_function)
+    def encode(self, x):
+        return self.encoder.forward(x)
 
-    def decode(self, z, final_layer_function=no_activation, activation_function=torchfunc.elu):
-        return self.decoder.forward(z, final_layer_function, activation_function)
+    def decode(self, z):
+        return self.decoder.forward(z)
 
-    def forward(self, x, final_layer_function=no_activation, activation_function=torchfunc.elu):
-        mean, log_std = self.encode(x, final_layer_function, activation_function)
+    def forward(self, x):
+        mean, log_std = self.encode(x)
         std = log_std.exp()
 
         normal = Normal(mean, std)

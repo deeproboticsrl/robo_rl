@@ -11,11 +11,13 @@ from tensorboardX import SummaryWriter
 
 torch.manual_seed(0)
 
-linear_network = LinearNetwork(layers_size=[1, 5, 5, 2])
+linear_network = LinearNetwork(layers_size=[1, 5, 5, 2],final_layer_function=torch.sigmoid,
+                               activation_function=torchfunc.relu)
+
 xavier_initialisation(linear_network)
 
 mod_value = 4
-lr = 0.001
+lr = 0.01
 
 x = torch.Tensor([i % mod_value for i in range(1000)]).reshape(1000, 1)
 y = torch.LongTensor([[i % 2, (i + 1) % 2] for i in range(1000)]).reshape(1000, 2)
@@ -25,9 +27,10 @@ os.makedirs(logdir, exist_ok=True)
 
 writer = SummaryWriter(log_dir=logdir)
 
+writer.add_graph(linear_network, x[0])
+
 for num_iteration in range(1000):
-    y_pred = linear_network.forward(x, final_layer_function=torch.sigmoid,
-                                    activation_function=torchfunc.relu)
+    y_pred = linear_network.forward(x, )
 
     a = y_pred.unsqueeze(1)
     y_not_pred = 1 - y_pred
