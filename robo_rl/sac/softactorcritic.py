@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.optim import Adam
-from robo_rl.sac.tanh_gaussian_policy import TanhGaussianPolicy
+from robo_rl.sac.gaussian_policy import GaussianPolicy
 from robo_rl.common.networks.value_network import LinearQNetwork, LinearValueNetwork
 import robo_rl.common.utils.nn_utils as nn_utils
 import robo_rl.common.utils.utils as utils
@@ -53,7 +53,7 @@ class SAC:
 
         self.value = LinearValueNetwork(self.state_dim, [self.hidden_dim, self.hidden_dim])
         self.value_target = LinearValueNetwork(self.state_dim, [self.hidden_dim, self.hidden_dim])
-        self.policy = TanhGaussianPolicy(self.state_dim, self.action_dim, [self.hidden_dim, self.hidden_dim])
+        self.policy = GaussianPolicy(self.state_dim, self.action_dim, [self.hidden_dim, self.hidden_dim])
         self.critic = n_critics(self.state_dim, self.action_dim, [self.hidden_dim, self.hidden_dim], number_q=2)
         nn_utils.xavier_initialisation(self.value, self.policy, self.critic)
         self.value_optimizer = Adam(self.value.parameters(), lr=self.lr)
@@ -70,7 +70,7 @@ class SAC:
         done_batch = batch['done']
         # not_done_batch = np.logical_not(done_batch)  ## batch_size * 1
         exp_q1, exp_q2 = self.critic(state_batch, action_batch)
-        new_action, z, log_prob, mean, log_std = self.policy.evaluation(state_batch, reparametrize=self.reparam)
+        new_action, log_prob = self.policy.get_action(state_batch, reparametrize=self.reparam)
 
         # now to stabilize training for soft value
         # actions sampled according to current policy and not replay buffer

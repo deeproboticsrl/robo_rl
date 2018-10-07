@@ -57,7 +57,7 @@ for i in range(args.num_episodes):
 
     while True:
         episode_reward = 0
-        action = sacobj.policy.get_action(state)
+        action, _ = sacobj.policy.get_action(state)
         observation, reward, done, _ = env.step(action)
         sample = dict(state=state, action=action, reward=reward, next_state=observation, done=done)
         buffer.add(sample)
