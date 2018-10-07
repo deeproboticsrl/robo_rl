@@ -14,8 +14,8 @@ parser.add_argument('--env_seed', type=int, default=1105, help="environment seed
 parser.add_argument('--soft_update_tau', type=float, default=0.005, help="target smoothening coefficient tau")
 parser.add_argument('--discount_factor', type=float, default=0.99, help='discount factor gamma')
 parser.add_argument('--scale_reward', type=int, default=10,
-                    help="reward scaling humannoid_v1=20, humnanoid_rllib=10, other mujoco=5")
-parser.add_argument('--reparam', type=bool, default=True, help="True if reparameterization trick is applied")
+                    help="reward scaling humannoid_v1=20, humnanoid_rllab=10, other mujoco=5")
+parser.add_argument('--reparametrize', type=bool, default=True, help="True if reparameterization trick is applied")
 parser.add_argument('--target_update_interval', type=int, default=1,
                     help="used in case of hard update with or without td3")
 
@@ -42,8 +42,9 @@ action_dim = env.action_space.shape[0]
 state_dim = env.observation_space.shape[0]
 
 writer = SummaryWriter()
-sacobj = SAC(action_dim, state_dim, args.hidden_dim, args.discount_factor, args.scale_reward, args.reparam,
-             args.deterministic, args.target_update_interval, args.lr, args.soft_update_tau, args.td3)
+
+sac = SAC(action_dim, state_dim, args.hidden_dim, args.discount_factor, args.scale_reward, args.reparam,
+          args.deterministic, args.target_update_interval, args.lr, args.soft_update_tau, args.td3)
 
 buffer = ReplayBuffer(capacity=args.buffercapacity)
 rewards = []
@@ -57,7 +58,7 @@ for i in range(args.num_episodes):
 
     while True:
         episode_reward = 0
-        action, _ = sacobj.policy.get_action(state)
+        action = sac.policy.get_action(state, evaluate=False)
         observation, reward, done, _ = env.step(action)
         sample = dict(state=state, action=action, reward=reward, next_state=observation, done=done)
         buffer.add(sample)
@@ -65,7 +66,7 @@ for i in range(args.num_episodes):
             for i in range(args.updates_per_step):
                 update_count += 1
                 batch = buffer.sample(batch_size=args.sample_batch_size)
-                sacobj.policy_update(batch, update_number=update_count)
+                sac.policy_update(batch, update_number=update_count)
 
 
             # assumed 1 update for 1env step
@@ -80,10 +81,10 @@ for i in range(args.num_episodes):
     if episode_reward > max_reward:
         max_reward = episode_reward
         ## save current best model
-        sacobj.save_model(env_name= args.env_name,info='best')
+        sac.save_model(env_name= args.env_name, info='best')
 
     if (i % args.save_iter):
-        sacobj.save_model(env_name= args.env_name,info=str(i))
+        sac.save_model(env_name= args.env_name, info=str(i))
         buffer.save_buffer(info=args.env_name)
 
     rewards.append(episode_reward)

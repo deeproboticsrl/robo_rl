@@ -23,7 +23,7 @@ class GaussianPolicy(LinearGaussianNetwork):
         return super().forward(state, final_layer_function=no_activation, activation_function=torchfunc.elu)
 
     def get_action(self, state, squasher, epsilon=1e-6, reparametrize=True, deterministic=False,
-                   log_std_min=-10, log_std_max=-1):
+                   log_std_min=-10, log_std_max=-1, evaluate=True):
 
         mean, log_std = self.forward(state)
 
@@ -42,6 +42,9 @@ class GaussianPolicy(LinearGaussianNetwork):
                 z = normal.sample()
 
         action = squasher.squash(z)
+
+        if not evaluate:
+            return action
 
         log_prob = normal.log_prob(z) - torch.log(squasher.derivative(z) + epsilon)
 

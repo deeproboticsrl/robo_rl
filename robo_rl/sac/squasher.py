@@ -20,6 +20,7 @@ class TanhSquasher(Squasher):
     def derivative(self, x):
         return 1 - torch.tanh(x)**2
 
+
 class SigmoidSquasher(Squasher):
 
     def squash(self, x):
