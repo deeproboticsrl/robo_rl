@@ -9,7 +9,7 @@ import os
 
 
 # ASSUMPTION : non deterministic
-# TODO dfjbnj
+# TODO testing
 
 def soft_update(original, target, t=1e-2):
     # zip(a,b) is same as [a.b]
@@ -70,7 +70,7 @@ class SAC:
         done_batch = batch['done']
         # not_done_batch = np.logical_not(done_batch)  ## batch_size * 1
         exp_q1, exp_q2 = self.critic(state_batch, action_batch)
-        new_action, z, log_prob, mean, log_std = self.policy.evaluation(state_batch, reparametrize=self.reparam)
+        new_action, z, log_prob, mean, log_std = self.policy.evaluation(state_batch, reparameterize=self.reparam)
 
         # now to stabilize training for soft value
         # actions sampled according to current policy and not replay buffer
@@ -81,6 +81,7 @@ class SAC:
             exp_value = self.value(state_batch)
             exp_target_value = self.value_target(next_state_batch)
             ##Q^ = scaled reward + discount_factor * exp_target_value(st+1)
+            # TODO check for dimension consistency
             q_target = self.scale_reward * reward_batch + (1 - done_batch) * self.discount_factor * exp_target_value
 
         # JQ
@@ -89,8 +90,7 @@ class SAC:
 
         ## to calculate JV and Jpi state is sampled from buffer but action is sampled from policy
         # Min of 2 q value is used in eqn(6)
-        q1_new = self.critic(state_batch, new_action)
-        q2_new = self.critic(state_batch, new_action)
+        q1_new, q2_new = self.critic(state_batch, new_action)
         expected_new_q_value = torch.min(q1_new, q2_new)
 
         ## JV= Est~D[0.5(V(st)- (Eat~pi (Qmin (st,at) - logpi )^2
@@ -102,6 +102,8 @@ class SAC:
         if self.reparam == True:
             # reparameterization trick
             policy_loss = (log_prob - expected_new_q_value.detach()).mean()
+            # TODO : ADD regularization losses
+
 
         self.critic_optimizer.zero_grad()
         q1_val_loss.backward()

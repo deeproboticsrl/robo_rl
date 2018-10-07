@@ -3,10 +3,10 @@ import robo_rl.common.utils.utils as utils
 import torch
 import robo_rl.common.utils.nn_utils as nn_utils
 from torchviz import make_dot
-import robo_rl.robo_rl.common.utils.nn_utils
-
-layer_sizes = [2, 4, 3]
-discriminator = Discriminator(layer_sizes)
+import robo_rl.common.utils.nn_utils
+input =2
+hidden_sizes = [4, 3]
+discriminator = Discriminator(input=input,hidden_layer=hidden_sizes)
 
 utils.print_heading("Network architecture")
 nn_utils.print_all_modules(discriminator)
@@ -18,7 +18,7 @@ y = discriminator.forward(x)
 discriminator.apply(nn_utils.xavier_initialisation)
 
 utils.print_heading("Check output shape")
-print(x.numpy(), y.detach().numpy())
+print(x, y)
 
 y.backward()
 

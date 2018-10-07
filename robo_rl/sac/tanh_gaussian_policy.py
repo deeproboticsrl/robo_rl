@@ -18,7 +18,7 @@ class TanhGaussianPolicy(LinearGaussianNetwork):
     def forward(self, state):
         return super().forward(state, final_layer_function=torchfunc.linear, activation_function=torchfunc.elu)
 
-    def evaluation(self, state, epsilon=1e-6, reparametrize=True, deterministic=False):
+    def evaluation(self, state, epsilon=1e-6, reparameterize=True, deterministic=False):
         mean, log_std = self.forward(state)
         if deterministic:
             return mean
