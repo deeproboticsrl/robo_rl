@@ -3,8 +3,19 @@ import torch.nn as nn
 
 class LinearNetwork(nn.Module):
 
-    def __init__(self, layers_size, is_layer_norm=True, is_final_layer_norm=False):
+    def __init__(self, layers_size, is_layer_norm=True, is_final_layer_norm=False, is_dropout=False,
+                 dropout_probability=0.5):
         """
+        Arguments:
+
+            layers_size (list/array of integers) : number of nodes in each layer of the neural network
+            including input and output
+
+            is_layer_norm (bool, optional): whether to apply layer norm to each layer in the network
+
+            is_final_layer_norm (bool, optional): whether to apply layer norm to final(output) layer.
+            Use this only when this network's output will be cascaded to further networks
+
         Example If layers_size = [10,200,300,2]
         Number of inputs = 10
         Number of hidden layers = 2 with 200 nodes in 1st layer and 300 in next layer
@@ -12,6 +23,7 @@ class LinearNetwork(nn.Module):
         """
         self.is_layer_norm = is_layer_norm
         self.is_final_layer_norm = is_final_layer_norm
+        self.is_dropout = is_dropout
         super().__init__()
         self.linear_layers = nn.ModuleList([nn.Linear(layers_size[i], layers_size[i + 1])
                                             for i in range(len(layers_size) - 1)])
@@ -22,12 +34,28 @@ class LinearNetwork(nn.Module):
             if self.is_final_layer_norm:
                 self.layer_norm_layers.append(nn.LayerNorm(layers_size[-1]))
 
+        if self.is_dropout:
+            self.dropout_layer = nn.AlphaDropout(p=dropout_probability)
+
     def forward(self, x, final_layer_function, activation_function):
+        """
+
+        Arguments:
+
+            x (Tensor): input to the network
+
+            final_layer_function (pytorch function): activation function to be applied at final layer of network
+
+            activation_function (pytorch function): activation function to be applied at each hidden layer
+
+        """
         for i in range(len(self.linear_layers) - 1):
             x = self.linear_layers[i](x)
             if self.is_layer_norm:
                 x = self.layer_norm_layers[i](x)
             x = activation_function(x)
+            if self.is_dropout:
+                x = self.dropout_layer(x)
 
         x = self.linear_layers[-1](x)
         if self.is_final_layer_norm:

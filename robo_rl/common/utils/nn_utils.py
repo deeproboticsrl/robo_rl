@@ -12,3 +12,19 @@ def xavier_initialisation(*module):
 def print_all_modules(network):
     for idx, module in enumerate(network.modules()):
         print(idx, '->', module)
+
+
+def no_activation(x):
+    return x
+
+
+def soft_update(original, target, t=0.005):
+    # zip(a,b) is same as [a.b]
+    for original_param, target_param in zip(original.parameters(), target.parameters()):
+        target_param.data.copy_(original_param.data * t + target_param * (1 - t))
+        # check copy_ parameter : Something on cpu or gpu, also no need for return as it changes in self
+
+
+def hard_update(original, target):
+    for original_param, target_param in zip(original.parameters(), target.parameters()):
+        target_param.data.copy_(original_param.data)
