@@ -18,10 +18,10 @@ def n_critics(state_dim, action_dim, hidden_dim, num_q):
 
 
 class SAC:
-    def __init__(self, action_dim, state_dim, hidden_dim, discount_factor=0.99, scale_reward=3,
+    def __init__(self, action_dim, state_dim, hidden_dim, writer,discount_factor=0.99, scale_reward=3,
                  reparam=True, target_update_interval=1000, lr=3e-4, soft_update_tau=0.005,
                  td3=False, deterministic=False):
-
+        self.writer = writer
         self.deterministic = deterministic
         self.action_dim = action_dim
         self.state_dim = state_dim

@@ -45,7 +45,7 @@ state_dim = env.observation_space.shape[0]
 writer = SummaryWriter()
 
 sac = SAC(action_dim=action_dim, state_dim=state_dim, hidden_dim=args.hidden_dim, discount_factor=args.discount_factor,
-          scale_reward=args.scale_reward, reparam=args.reparam, deterministic=args.deterministic,
+          writer=writer, scale_reward=args.scale_reward, reparam=args.reparam, deterministic=args.deterministic,
           target_update_interval=args.target_update_interval, lr=args.lr, soft_update_tau=args.soft_update_tau,
           td3=args.td3)
 
