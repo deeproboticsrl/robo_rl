@@ -7,7 +7,6 @@ import torch.nn as nn
 from robo_rl.common.networks import LinearQNetwork, LinearValueNetwork
 from robo_rl.common.utils import soft_update, hard_update
 from robo_rl.sac import GaussianPolicy
-
 from torch.optim import Adam
 
 
@@ -20,8 +19,8 @@ def n_critics(state_dim, action_dim, hidden_dim, num_q):
 
 class SAC:
     def __init__(self, action_dim, state_dim, hidden_dim, writer, squasher, discount_factor=0.99, scale_reward=3,
-                 reparam=True, target_update_interval=1000, lr=3e-4, soft_update_tau=0.005,
-                 td3=False, deterministic=False):
+                 reparam=True, target_update_interval=1, lr=3e-4, soft_update_tau=0.005,
+                 td3_update_interval=100, deterministic=False):
         self.writer = writer
         self.deterministic = deterministic
         self.squasher = squasher
@@ -34,7 +33,7 @@ class SAC:
         self.target_update_interval = target_update_interval
         self.lr = lr
         self.soft_update_tau = soft_update_tau
-        self.td3 = td3
+        self.td3_update_interval = td3_update_interval
 
         self.value = LinearValueNetwork(state_dim=self.state_dim, hidden_dim=self.hidden_dim)
         self.value_target = LinearValueNetwork(state_dim=self.state_dim, hidden_dim=self.hidden_dim)
@@ -96,7 +95,6 @@ class SAC:
             # reparameterization trick
             policy_loss = (log_prob - min_q_value.detach()).mean()
 
-
         self.critic1_optimizer.zero_grad()
         q1_val_loss.backward()
         self.critic1_optimizer.step()
@@ -109,37 +107,39 @@ class SAC:
         value_loss.backward()
         self.value_optimizer.step()
 
-        if self.td3 is False:
+        if update_number % self.td3_update_interval:
             self.policy_optimizer.zero_grad()
             policy_loss.backward()
             self.policy_optimizer.step()
 
         if self.target_update_interval > 1:
-
             if update_number % self.target_update_interval == 0 and self.deterministic is False:
                 hard_update(self.value, self.value_target)
-                # TODO TD3 update
-
         else:
             if self.deterministic is False:
                 soft_update(original=self.value, target=self.value_target, t=self.soft_update_tau)
 
-    def save_model(self, env_name, actor_path, critic_path, value_path, info=1):
+        self.writer.add_scalar("Value loss", value_loss)
+        self.writer.add_scalar("Q Value 1 loss", q1_val_loss)
+        self.writer.add_scalar("Q Value 2 loss", q2_val_loss)
+        self.writer.add_scalar("Policy loss", policy_loss)
+
+    def save_model(self, env_name, actor_path=None, critic_path=None, value_path=None, info=1):
 
         if actor_path is None:
-            actor_path = 'model/{}/actor_{}'.format(info, env_name)
+            actor_path = f'model/{env_name}/'
         os.makedirs(actor_path, exist_ok=True)
         if critic_path is None:
-            critic_path = 'model/{}/critic_{}'.format(info, env_name)
+            critic_path = f'model/{env_name}/'
         os.makedirs(critic_path, exist_ok=True)
         if value_path is None:
-            value_path = 'model/{}/value_{}'.format(info, env_name)
+            value_path = f'model/{env_name}/'
         os.makedirs(value_path, exist_ok=True)
 
         utils.print_heading("Saving actor,critic,value network parameters")
-        torch.save(self.policy.state_dict(), actor_path)
-        torch.save(self.value.state_dict(), value_path)
-        torch.save(self.critics.state_dict(), critic_path)
+        torch.save(self.policy.state_dict(), actor_path + f"actor_{info}.pt")
+        torch.save(self.value.state_dict(), value_path + f"value_{info}.pt")
+        torch.save(self.critics.state_dict(), critic_path + f"critics_{info}.pt")
         utils.heading_decorator(bottom=True, print_req=True)
 
     def load_model(self, actor_path, critic_path, value_path):
@@ -154,3 +154,6 @@ class SAC:
             self.value.load_state_dict(torch.load(value_path))
 
         utils.print_heading('loading done')
+
+    def get_action(self, state):
+        return self.policy.get_action(state, self.squasher, evaluate=False)

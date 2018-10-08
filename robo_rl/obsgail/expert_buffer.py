@@ -1,9 +1,9 @@
 import numpy as np
 import pickle
-from robo_rl.common.replaybuffer import ReplayBuffer
+from robo_rl.common.buffer.buffer import Buffer
 
 
-class ExpertBuffer(ReplayBuffer):
+class ExpertBuffer(Buffer):
     """Unlike traditional replay buffers, this is a collection of
     trajectories not individual transitions"""
 

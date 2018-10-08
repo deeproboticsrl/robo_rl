@@ -1,1 +1,1 @@
-from robo_rl.common.replaybuffer import ReplayBuffer
+from robo_rl.common.buffer.buffer import Buffer

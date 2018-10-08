@@ -1,10 +1,12 @@
-import numpy as np
 import copy
-import pickle
 import os
+import pickle
+
+import numpy as np
+from robo_rl.common.utils import print_heading
 
 
-class ReplayBuffer:
+class Buffer:
 
     def __init__(self, capacity=1000000):
         self.capacity = capacity
@@ -16,7 +18,7 @@ class ReplayBuffer:
 
     def add(self, item):
 
-        if len(self) > self.capacity:
+        if len(self) < self.capacity:
             self.buffer.append(None)
         self.buffer[self.position] = copy.deepcopy(item)
 
@@ -32,11 +34,12 @@ class ReplayBuffer:
         return self.buffer[indices]  ##return list of dicts
 
     # info can be env_name and other details
-    def save_buffer(self, path, info='env'):
+    def save_buffer(self, path=None, info='env'):
         if path is None:
-            if info:
-                path = os.makedirs('/data/replay_memory/{}'.format(info), exist_ok=True)
-        pickle.dump(self.buffer, path)
+            path = f'buffer/{info}/'
+        print_heading("Saving replay buffer")
+        os.makedirs(path, exist_ok=True)
+        pickle.dump(self.buffer, open(path + "buffer.pkl", "wb"))
 
     def load_buffer(self, path):
-        self.buffer = pickle.load(os.open(path))
+        self.buffer = pickle.load(open(path, "rb"))

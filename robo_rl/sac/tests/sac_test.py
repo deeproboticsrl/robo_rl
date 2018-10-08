@@ -4,12 +4,12 @@ import gym
 import numpy as np
 import torch
 import torch.nn as nn
-from robo_rl.common.utils import print_network_architecture
 from robo_rl.common.utils import print_heading
+from robo_rl.common.utils import print_network_architecture
+from robo_rl.common.utils import soft_update
 from robo_rl.sac import SAC
 from robo_rl.sac import TanhSquasher
 from tensorboardX import SummaryWriter
-from robo_rl.common.utils import soft_update
 
 env = gym.make("FetchReach-v1")
 
@@ -165,9 +165,8 @@ print("q2 ".ljust(25), q_2[0], q_2[1])
 
 print_heading("Target value soft update")
 target_value = sac.value_target(state_batch)
-print("Target value before".ljust(25),target_value[0],target_value[1])
+print("Target value before".ljust(25), target_value[0], target_value[1])
 soft_update(original=sac.value, target=sac.value_target, t=sac.soft_update_tau)
 target_value = sac.value_target(state_batch)
-print("Target value before".ljust(25),target_value[0],target_value[1])
-
+print("Target value after".ljust(25), target_value[0], target_value[1])
 
