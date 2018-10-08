@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 from robo_rl.common.networks import LinearQNetwork, LinearValueNetwork
 from robo_rl.common.utils import soft_update, hard_update
+from robo_rl.sac import GaussianPolicy
 
 from torch.optim import Adam
 
