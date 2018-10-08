@@ -18,81 +18,85 @@ def n_critics(state_dim, action_dim, hidden_dim, num_q):
 
 
 class SAC:
-    def __init__(self, action_dim, state_dim, hidden_dim, discount_factor=0.99, scale_reward=3,
-                 reparametrize=True, deterministic=False, target_update_interval=1000, lr=3e-4, soft_update_tau=0.005,
+    def __init__(self, action_dim, state_dim, hidden_dim, writer, discount_factor=0.99, scale_reward=3,
+                 reparametrize=True, target_update_interval=1000, lr=3e-4, soft_update_tau=0.005,
                  td3=False):
 
         self.action_dim = action_dim
         self.state_dim = state_dim
         self.hidden_dim = hidden_dim
+        self.writer = writer
         self.discount_factor = discount_factor
         self.scale_reward = scale_reward
         self.reparametrize = reparametrize
-        self.deterministic = deterministic
         self.target_update_interval = target_update_interval
         self.lr = lr
         self.soft_update_tau = soft_update_tau
         self.td3 = td3
 
-        self.value = LinearValueNetwork(self.state_dim, self.hidden_dim)
-        self.value_target = LinearValueNetwork(self.state_dim, self.hidden_dim)
-        self.policy = GaussianPolicy(self.state_dim, self.action_dim, self.hidden_dim)
-        self.critics = n_critics(self.state_dim, self.action_dim, self.hidden_dim, num_q=2)
+        self.value = LinearValueNetwork(state_dim=self.state_dim, hidden_dim=self.hidden_dim)
+        self.value_target = LinearValueNetwork(state_dim=self.state_dim, hidden_dim=self.hidden_dim)
+        self.policy = GaussianPolicy(state_dim=self.state_dim, action_dim=self.action_dim, hidden_dim=self.hidden_dim)
+        self.critics = n_critics(state_dim=self.state_dim, action_dim=self.action_dim, hidden_dim=self.hidden_dim,
+                                 num_q=2)
         nn_utils.xavier_initialisation(self.value, self.policy, self.critics)
 
         self.value_optimizer = Adam(self.value.parameters(), lr=self.lr)
         self.policy_optimizer = Adam(self.policy.parameters(), lr=self.lr)
-        self.critic_optimizer = Adam(self.critics.parameters(), lr=self.lr)
+        self.critic1_optimizer = Adam(self.critics[0].parameters(), lr=self.lr)
+        self.critic2_optimizer = Adam(self.critics[1].parameters(), lr=self.lr)
 
         hard_update(target=self.value, original=self.value_target)
 
     def policy_update(self, batch, update_number):
-        # batch is dict from replay buffer
-        state_batch = torch.Tensor(batch['state'])
-        action_batch = torch.Tensor(batch['action'])
-        reward_batch = torch.Tensor(batch['reward'])
-        next_state_batch = batch['next_state']
-        done_batch = batch['done']
+        mse_loss = nn.MSELoss()
 
-        exp_q1, exp_q2 = self.critics(state_batch, action_batch)
-        new_action, log_prob = self.policy.get_action(state_batch, reparametrize=self.reparametrize)
+        """batch is a dict from replay buffer"""
+        state_batch = torch.Tensor(batch['state']).detach()
+        action_batch = torch.Tensor(batch['action']).detach()
+        reward_batch = torch.Tensor(batch['reward']).detach()
+        next_state_batch = torch.Tensor(batch['next_state']).detach()
+        done_batch = torch.Tensor(batch['done']).detach()
 
-        # actions sampled according to current policy and not replay buffer
-        # use minimum of 2 qa values for value grad and policy grad
-        # TODO reshape reward and done batch
+        target_value_D = self.value_target(next_state_batch)
 
-        if self.deterministic == False:
-            exp_value = self.value(state_batch)
-            exp_target_value = self.value_target(next_state_batch)
-            #Q^ = scaled reward + discount_factor * exp_target_value(st+1)
-            q_target = self.scale_reward * reward_batch + (1 - done_batch) * self.discount_factor * exp_target_value
+        # Q^ = scaled reward + discount_factor * exp_target_value(st+1)
+        Q_hat_D = self.scale_reward * reward_batch + (1 - done_batch) * self.discount_factor * target_value_D
 
-        # JQ
-        q1_val_loss = nn.MSELoss(exp_q1, (q_target.detach()))
-        q2_val_loss = nn.MSELoss(exp_q2, q_target.detach())
+        # Q values for state and action taken from given batch (sampled from replay buffer)
+        Q1_D = self.critics[0](torch.cat([state_batch, action_batch], 1))
+        Q2_D = self.critics[1](torch.cat([state_batch, action_batch], 1))
+
+        # JQ  ----------------
+        q1_val_loss = mse_loss(Q1_D, Q_hat_D.detach())
+        q2_val_loss = mse_loss(Q2_D, Q_hat_D.detach())
+
+        policy_action, log_prob = self.policy.get_action(state_batch, reparametrize=self.reparametrize)
 
         # to calculate JV and Jpi state is sampled from buffer but action is sampled from policy
         # Min of 2 q value is used in eqn(6)
-        q1_new,q2_new = self.critics(state_batch, new_action)
+        q1_new, q2_new = self.critics(state_batch, policy_action)
         expected_new_q_value = torch.min(q1_new, q2_new)
 
-        # JV= Est~D[0.5(V(st)- (Eat~pi (Qmin (st,at) - logpi )^2
-        # v_target = Eat~pi (Qmin (st,at) - logpi
+        """ JV= Est~D[ 0.5(V(st)- (Eat~pi [(Qmin (st,at) - logpi]) )^2]
+        actions sampled according to current policy and not replay buffer
+        v_target = Eat~pi (Qmin (st,at) - logpi
+        """
         v_target = expected_new_q_value - log_prob
-        value_loss = nn.MSELoss(exp_value - v_target.detach())
+        value_loss = mse_loss(value_D - v_target.detach())
 
         # policy loss
-        if self.reparametrize == True:
+        if self.reparametrize:
             # reparameterization trick
             policy_loss = (log_prob - expected_new_q_value.detach()).mean()
 
-        self.critic_optimizer.zero_grad()
+        self.critics_optimizer.zero_grad()
         q1_val_loss.backward()
-        self.critic_optimizer.step()
+        self.critics_optimizer.step()
 
-        self.critic_optimizer.zero_grad()
+        self.critics_optimizer.zero_grad()
         q2_val_loss.backward()
-        self.critic_optimizer.step()
+        self.critics_optimizer.step()
 
         self.value_optimizer.zero_grad()
         value_loss.backward()
