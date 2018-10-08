@@ -4,11 +4,12 @@ import gym
 import numpy as np
 import torch
 import torch.nn as nn
-from robo_rl.common.utils.nn_utils import print_network_architecture
-from robo_rl.common.utils.utils import print_heading
-from robo_rl.sac.softactorcritic import SAC
-from robo_rl.sac.squasher import TanhSquasher
+from robo_rl.common.utils import print_network_architecture
+from robo_rl.common.utils import print_heading
+from robo_rl.sac import SAC
+from robo_rl.sac import TanhSquasher
 from tensorboardX import SummaryWriter
+from robo_rl.common.utils import soft_update
 
 env = gym.make("FetchReach-v1")
 
@@ -29,7 +30,7 @@ logdir = "./tensorboard_log/"
 os.makedirs(logdir, exist_ok=True)
 writer = SummaryWriter(log_dir=logdir)
 
-sac = SAC(state_dim=state_dim, action_dim=action_dim, writer=writer, hidden_dim=hidden_dim)
+sac = SAC(state_dim=state_dim, action_dim=action_dim, writer=writer, hidden_dim=hidden_dim, squasher=squasher)
 
 print_heading("Architecture of value network")
 print_network_architecture(sac.value)
@@ -82,8 +83,8 @@ q_hat_done = sac.scale_reward * reward_batch + \
 q_1 = sac.critics[0](torch.cat([state_batch, action_batch], 1))
 q_2 = sac.critics[1](torch.cat([state_batch, action_batch], 1))
 mse_loss = nn.MSELoss()
-q1_loss = mse_loss(q_1, q_hat_not_done.detach())
-q2_loss = mse_loss(q_2, q_hat_not_done.detach())
+q1_loss = 0.5 * mse_loss(q_1, q_hat_not_done.detach())
+q2_loss = 0.5 * mse_loss(q_2, q_hat_not_done.detach())
 
 print("Reward".ljust(25), reward_batch[0], reward_batch[1])
 print("Scale Factor".ljust(25), sac.scale_reward)
@@ -109,13 +110,64 @@ print("q2 ".ljust(25), q_2[0], q_2[1])
 sac.critic2_optimizer.zero_grad()
 q2_loss.backward()
 sac.critic2_optimizer.step()
-sac.critic2_optimizer.zero_grad()
-sac.critic2_optimizer.step()
-
 
 q_1 = sac.critics[0](torch.cat([state_batch, action_batch], 1))
 q_2 = sac.critics[1](torch.cat([state_batch, action_batch], 1))
 print("Q2 optimised, hence only Q2 should change")
 print("q1 ".ljust(25), q_1[0], q_1[1])
 print("q2 ".ljust(25), q_2[0], q_2[1])
+
+print_heading("Calculation of JV")
+policy_action, log_prob = sac.policy.get_action(state_batch, squasher=sac.squasher, reparam=sac.reparam, evaluate=True)
+q1_current_policy = sac.critics[0](torch.cat([state_batch, policy_action], 1))
+q2_current_policy = sac.critics[1](torch.cat([state_batch, policy_action], 1))
+min_q_value = torch.min(q1_current_policy, q2_current_policy)
+v_target = min_q_value - log_prob
+value = sac.value(state_batch)
+value_loss = 0.5 * mse_loss(value, v_target.detach())
+
+print("log prob".ljust(25), log_prob[0], log_prob[1])
+print("q_1 current".ljust(25), q1_current_policy[0], q1_current_policy[1])
+print("q_2 current".ljust(25), q2_current_policy[0], q2_current_policy[1])
+print("min_q ".ljust(25), min_q_value[0], min_q_value[1])
+print("v_target ".ljust(25), v_target[0], v_target[1])
+print("value ".ljust(25), value[0], value[1])
+print("value_loss".ljust(25), value_loss)
+
+print_heading("Update V. Q1 and Q2 shouldn't change")
+
+sac.value_optimizer.zero_grad()
+value_loss.backward()
+sac.value_optimizer.step()
+
+value = sac.value(state_batch)
+q1_current_policy = sac.critics[0](torch.cat([state_batch, policy_action], 1))
+q2_current_policy = sac.critics[1](torch.cat([state_batch, policy_action], 1))
+print("q_1 current".ljust(25), q1_current_policy[0], q1_current_policy[1])
+print("q_2 current".ljust(25), q2_current_policy[0], q2_current_policy[1])
+print("value ".ljust(25), value[0], value[1])
+
+print_heading("Calculation of Jpi")
+policy_loss = (log_prob - min_q_value.detach()).mean()
+print("policy loss", policy_loss)
+
+print_heading("Update policy. log prob should change. Q1 Q2 with buffer actions should not")
+sac.policy_optimizer.zero_grad()
+policy_loss.backward()
+sac.policy_optimizer.step()
+
+policy_action, log_prob = sac.policy.get_action(state_batch, squasher=sac.squasher, reparam=sac.reparam, evaluate=True)
+q_1 = sac.critics[0](torch.cat([state_batch, action_batch], 1))
+q_2 = sac.critics[1](torch.cat([state_batch, action_batch], 1))
+print("log prob".ljust(25), log_prob[0], log_prob[1])
+print("q1 ".ljust(25), q_1[0], q_1[1])
+print("q2 ".ljust(25), q_2[0], q_2[1])
+
+print_heading("Target value soft update")
+target_value = sac.value_target(state_batch)
+print("Target value before".ljust(25),target_value[0],target_value[1])
+soft_update(original=sac.value, target=sac.value_target, t=sac.soft_update_tau)
+target_value = sac.value_target(state_batch)
+print("Target value before".ljust(25),target_value[0],target_value[1])
+
 

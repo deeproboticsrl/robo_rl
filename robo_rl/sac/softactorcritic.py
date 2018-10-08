@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 from robo_rl.common.networks import LinearQNetwork, LinearValueNetwork
 from robo_rl.common.utils import soft_update, hard_update
-
+from robo_rl.sac import GaussianPolicy
 from torch.optim import Adam
 
 
@@ -18,11 +18,12 @@ def n_critics(state_dim, action_dim, hidden_dim, num_q):
 
 
 class SAC:
-    def __init__(self, action_dim, state_dim, hidden_dim, writer,discount_factor=0.99, scale_reward=3,
+    def __init__(self, action_dim, state_dim, hidden_dim, writer, squasher, discount_factor=0.99, scale_reward=3,
                  reparam=True, target_update_interval=1000, lr=3e-4, soft_update_tau=0.005,
                  td3=False, deterministic=False):
         self.writer = writer
         self.deterministic = deterministic
+        self.squasher = squasher
         self.action_dim = action_dim
         self.state_dim = state_dim
         self.hidden_dim = hidden_dim
@@ -61,37 +62,39 @@ class SAC:
         value = self.value(state_batch)
         target_value = self.value_target(next_state_batch)
 
-        # q^ = scaled reward + discount_factor * exp_target_value(st+1)
-        q_hat = self.scale_reward * reward_batch + (1 - done_batch) * self.discount_factor * target_value
+        # Q^ = scaled reward + discount_factor * exp_target_value(st+1)
+        q_hat_buffer = self.scale_reward * reward_batch + (1 - done_batch) * self.discount_factor * target_value
 
         # Q values for state and action taken from given batch (sampled from replay buffer)
-        q1_val = self.critics[0](torch.cat([state_batch, action_batch], 1))
-        q2_val = self.critics[1](torch.cat([state_batch, action_batch], 1))
+        q1_buffer = self.critics[0](torch.cat([state_batch, action_batch], 1))
+        q2_buffer = self.critics[1](torch.cat([state_batch, action_batch], 1))
 
         # JQ  ----------------
-        q1_val_loss = mse_loss(q1_val, q_hat.detach())
-        q2_val_loss = mse_loss(q2_val, q_hat.detach())
+        q1_val_loss = 0.5 * mse_loss(q1_buffer, q_hat_buffer.detach())
+        q2_val_loss = 0.5 * mse_loss(q2_buffer, q_hat_buffer.detach())
 
-        policy_action, log_prob = self.policy.get_action(state_batch, reparam=self.reparam, evaluate=True)
+        policy_action, log_prob = self.policy.get_action(state_batch, squasher=self.squasher, reparam=self.reparam,
+                                                         evaluate=True)
 
         # to calculate JV and Jpi state is sampled from buffer but action is sampled from policy
         # Min of 2 q value is used in eqn(6)
-        q1_new, q2_new = self.critics(state_batch, policy_action)
+        q1_current_policy = self.critics[0](torch.cat([state_batch, policy_action], 1))
+        q2_current_policy = self.critics[1](torch.cat([state_batch, policy_action], 1))
 
-        expected_new_q_value = torch.min(q1_new, q2_new)
+        min_q_value = torch.min(q1_current_policy, q2_current_policy)
 
         """ JV= Est~D[ 0.5(V(st)- (Eat~pi [(Qmin (st,at) - logpi]) )^2]
         actions sampled according to current policy and not replay buffer
         v_target = Eat~pi (Qmin (st,at) - logpi
         """
-        v_target = expected_new_q_value - log_prob
-        value_loss = mse_loss(value - v_target.detach())
+        v_target = min_q_value - log_prob
+        value_loss = 0.5 * mse_loss(value, v_target.detach())
 
         # policy loss
         if self.reparam:
             # reparameterization trick
-            policy_loss = (log_prob - expected_new_q_value.detach()).mean()
-            # TODO : ADD regularization losses
+            policy_loss = (log_prob - min_q_value.detach()).mean()
+
 
         self.critic1_optimizer.zero_grad()
         q1_val_loss.backward()
@@ -118,7 +121,7 @@ class SAC:
 
         else:
             if self.deterministic is False:
-                soft_update(self.value, self.value_target, self.soft_update_tau)
+                soft_update(original=self.value, target=self.value_target, t=self.soft_update_tau)
 
     def save_model(self, env_name, actor_path, critic_path, value_path, info=1):
 
