@@ -4,8 +4,8 @@ import gym
 import numpy as np
 import torch
 from osim.env import ProstheticsEnv
-from robo_rl.common.replaybuffer import ReplayBuffer
-from robo_rl.sac.softactorcritic import SAC
+from robo_rl.common import ReplayBuffer
+from robo_rl.sac import SAC
 
 parser = argparse.ArgumentParser(description='PyTorch on fire')
 parser.add_argument('--env_name', default="ProstheticsEnv")
