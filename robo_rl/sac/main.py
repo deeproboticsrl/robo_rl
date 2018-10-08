@@ -9,7 +9,7 @@ from robo_rl.sac import SAC, SigmoidSquasher
 import os
 
 parser = argparse.ArgumentParser(description='PyTorch on fire')
-parser.add_argument('--env_name', default="Ant-v2")
+parser.add_argument('--env_name', default="Reacher-v2")
 parser.add_argument('--env_seed', type=int, default=1105, help="environment seed")
 parser.add_argument('--soft_update_tau', type=float, default=0.005, help="target smoothening coefficient tau")
 parser.add_argument('--lr', type=float, default=0.0003, help="learning rate")
@@ -69,6 +69,16 @@ def gym_torchify(gym_out):
     return torch.Tensor(observation), torch.Tensor([reward]), torch.Tensor([done]), info
 
 
+def ld_to_dl(batch_list_of_dicts):
+    batch_dict_of_lists = {}
+    for k in batch_list_of_dicts[0].keys():
+        batch_dict_of_lists[k] = []
+    for dictionary in batch_list_of_dicts:
+        for k in batch_list_of_dicts[0].keys():
+            batch_dict_of_lists[k].append(dictionary[k])
+    return batch_dict_of_lists
+
+
 for cur_episode in range(args.num_episodes):
     print(cur_episode)
 
@@ -80,24 +90,19 @@ for cur_episode in range(args.num_episodes):
         episode_reward = 0
         action = sac.get_action(state).detach()
         observation, reward, done, _ = gym_torchify(env.step(action))
-        sample = dict(state=state, action=action, reward=torch.Tensor([reward]), next_state=torch.Tensor(observation),
-                      done=torch.Tensor([done]))
+        sample = dict(state=state, action=action, reward=reward, next_state=observation,done=done)
         buffer.add(sample)
         if len(buffer) > 10 * args.sample_batch_size:
             for num_update in range(args.updates_per_step):
                 update_count += 1
                 batch_list_of_dicts = buffer.sample(batch_size=args.sample_batch_size)
-                batch_dict_of_lists = {}
-                for k in batch_list_of_dicts[0].keys():
-                    batch_dict_of_lists[k] = []
-                for dictionary in batch_list_of_dicts:
-                    for k in batch_list_of_dicts[0].keys():
-                        batch_dict_of_lists[k].append(dictionary[k])
-                print(batch_dict_of_lists)
-                # TODO append current transition
-                sac.policy_update(batch_dict_of_lists, update_number=update_count)
+                batch_dict_of_lists = ld_to_dl(batch_list_of_dicts)
 
-            # assumed 1 update for 1 env step
+                """ Combined Experience replay. Add online transition too.
+                """
+                for k in batch_list_of_dicts[0].keys():
+                    batch_dict_of_lists[k].append(sample[k])
+                sac.policy_update(batch_dict_of_lists, update_number=update_count)
 
         episode_reward += reward
         state = observation

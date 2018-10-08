@@ -1,6 +1,7 @@
 import copy
 import os
 import pickle
+import operator
 
 import numpy as np
 from robo_rl.common.utils import print_heading
@@ -30,8 +31,7 @@ class Buffer:
             raise ValueError('Sampling batch size greater than buffer size')
 
         indices = np.random.randint(0, len(self), batch_size)
-
-        return self.buffer[indices]  ##return list of dicts
+        return operator.itemgetter(*indices)(self.buffer)
 
     # info can be env_name and other details
     def save_buffer(self, path=None, info='env'):

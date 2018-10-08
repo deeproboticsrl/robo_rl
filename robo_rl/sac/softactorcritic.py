@@ -53,11 +53,11 @@ class SAC:
         mse_loss = nn.MSELoss()
 
         """batch is a dict from replay buffer"""
-        state_batch = torch.Tensor(batch['state']).detach()
-        action_batch = torch.Tensor(batch['action']).detach()
-        reward_batch = torch.Tensor(batch['reward']).detach()
-        next_state_batch = torch.Tensor(batch['next_state']).detach()
-        done_batch = torch.Tensor(batch['done']).detach()
+        state_batch = torch.stack(batch['state']).detach()
+        action_batch = torch.stack(batch['action']).detach()
+        reward_batch = torch.stack(batch['reward']).detach()
+        next_state_batch = torch.stack(batch['next_state']).detach()
+        done_batch = torch.stack(batch['done']).detach()
 
         value = self.value(state_batch)
         target_value = self.value_target(next_state_batch)
