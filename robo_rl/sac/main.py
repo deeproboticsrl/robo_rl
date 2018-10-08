@@ -1,12 +1,14 @@
 import argparse
-from tensorboardX import SummaryWriter
+import os
+
 import gym
 import numpy as np
 import torch
 from osim.env import ProstheticsEnv
 from robo_rl.common import Buffer
 from robo_rl.sac import SAC, SigmoidSquasher
-import os
+from tensorboardX import SummaryWriter
+from robo_rl.common.utils import gym_torchify
 
 parser = argparse.ArgumentParser(description='PyTorch on fire')
 parser.add_argument('--env_name', default="Reacher-v2")
@@ -25,12 +27,12 @@ parser.add_argument('--td3_update_interval', type=int, default=100,
 
 parser.add_argument('--hidden_dim', type=int, default=256, help='no of hidden units ')
 parser.add_argument('--buffer_capacity', type=int, default=1000000, help='buffer capacity')
-parser.add_argument('--sample_batch_size', type=int, default=256, help='sample from replay buffer')
+parser.add_argument('--sample_batch_size', type=int, default=256, help='number of samples from replay buffer')
 parser.add_argument('--max_time_steps', type=int, default=10000, help='max number of env timesteps per episodes')
 parser.add_argument('--num_episodes', type=int, default=10000, help='number of episodes')
 parser.add_argument('--updates_per_step', type=int, default=1, help='updates per step')
-parser.add_argument('--save_iter', type=int, default=10000, help='save model and buffer '
-                                                                 'after certain number of iteration')
+parser.add_argument('--save_iter', type=int, default=100, help='save model and buffer '
+                                                               'after certain number of iteration')
 args = parser.parse_args()
 if args.env_name == "ProstheticsEnv":
     env = ProstheticsEnv()
@@ -60,13 +62,8 @@ sac = SAC(action_dim=action_dim, state_dim=state_dim, hidden_dim=hidden_dim, dis
 
 buffer = Buffer(capacity=args.buffer_capacity)
 rewards = []
-update_count = 0
+update_count = 1
 max_reward = -np.inf
-
-
-def gym_torchify(gym_out):
-    observation, reward, done, info = gym_out
-    return torch.Tensor(observation), torch.Tensor([reward]), torch.Tensor([done]), info
 
 
 def ld_to_dl(batch_list_of_dicts):
@@ -90,7 +87,7 @@ for cur_episode in range(args.num_episodes):
         episode_reward = 0
         action = sac.get_action(state).detach()
         observation, reward, done, _ = gym_torchify(env.step(action))
-        sample = dict(state=state, action=action, reward=reward, next_state=observation,done=done)
+        sample = dict(state=state, action=action, reward=reward, next_state=observation, done=done)
         buffer.add(sample)
         if len(buffer) > 10 * args.sample_batch_size:
             for num_update in range(args.updates_per_step):
@@ -119,7 +116,5 @@ for cur_episode in range(args.num_episodes):
         sac.save_model(env_name=args.env_name, info=str(cur_episode))
         buffer.save_buffer(info=args.env_name)
 
-    sac.writer.add_scalar("Episode Reward", episode_reward)
+    sac.writer.add_scalar("Episode Reward", episode_reward, cur_episode)
     rewards.append(episode_reward)
-
-

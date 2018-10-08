@@ -9,26 +9,27 @@ from torch.distributions import Normal
 
 class GaussianPolicy(LinearGaussianNetwork):
 
-    def __init__(self, state_dim, action_dim, hidden_dim, is_layer_norm=True):
+    def __init__(self, state_dim, action_dim, hidden_dim, is_layer_norm=True, log_std_min=-10, log_std_max=-1):
 
         layers_size = [state_dim]
         layers_size.extend(hidden_dim)
         layers_size.append(action_dim)
         super().__init__(layers_size=layers_size, is_layer_norm=is_layer_norm, final_layer_function=no_activation,
                          activation_function=torchfunc.elu)
+        self.log_std_min = log_std_min
+        self.log_std_max = log_std_max
 
     def forward(self, state):
         """ returns mean and log_std after a forward pass through a linear neural network
         """
         return super().forward(state)
 
-    def get_action(self, state, squasher, epsilon=1e-6, reparam=True, deterministic=False, log_std_min=-10,
-                   log_std_max=-1, evaluate=True):
+    def get_action(self, state, squasher, epsilon=1e-6, reparam=True, deterministic=False, evaluate=True):
 
         mean, log_std = self.forward(state)
 
         # limit std. not too stochastic nor too deterministic
-        log_std = torch.clamp(log_std, min=log_std_min, max=log_std_max)
+        log_std = torch.clamp(log_std, min=self.log_std_min, max=self.log_std_max)
         std = torch.exp(log_std)
 
         normal = Normal(mean, std)
@@ -52,3 +53,19 @@ class GaussianPolicy(LinearGaussianNetwork):
         log_prob = log_prob.sum(-1, keepdim=True)
 
         return action, log_prob
+
+    def compute_log_prob_action(self, state, squasher, action, epsilon=1e-6):
+
+        mean, log_std = self.forward(state)
+
+        log_std = torch.clamp(log_std, min=self.log_std_min, max=self.log_std_max)
+        std = torch.exp(log_std)
+
+        normal = Normal(mean, std)
+
+        log_prob = normal.log_prob(action) - torch.log(squasher.derivative(action + epsilon))
+
+        # If tensor is 5*4, then the row sum wil be 5*1, corresponding to batch size of 5
+        log_prob = log_prob.sum(-1, keepdim=True)
+
+        return log_prob

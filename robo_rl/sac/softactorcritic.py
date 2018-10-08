@@ -119,10 +119,10 @@ class SAC:
             if self.deterministic is False:
                 soft_update(original=self.value, target=self.value_target, t=self.soft_update_tau)
 
-        self.writer.add_scalar("Value loss", value_loss)
-        self.writer.add_scalar("Q Value 1 loss", q1_val_loss)
-        self.writer.add_scalar("Q Value 2 loss", q2_val_loss)
-        self.writer.add_scalar("Policy loss", policy_loss)
+        self.writer.add_scalar("Value loss", value_loss, update_number)
+        self.writer.add_scalar("Q Value 1 loss", q1_val_loss, update_number)
+        self.writer.add_scalar("Q Value 2 loss", q2_val_loss, update_number)
+        self.writer.add_scalar("Policy loss", policy_loss, update_number)
 
     def save_model(self, env_name, actor_path=None, critic_path=None, value_path=None, info=1):
 
@@ -155,5 +155,5 @@ class SAC:
 
         utils.print_heading('loading done')
 
-    def get_action(self, state):
-        return self.policy.get_action(state, self.squasher, evaluate=False)
+    def get_action(self, state, deterministic=False, evaluate=False):
+        return self.policy.get_action(state, self.squasher, deterministic=deterministic, evaluate=evaluate)

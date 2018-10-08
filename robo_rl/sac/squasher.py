@@ -28,3 +28,13 @@ class SigmoidSquasher(Squasher):
 
     def derivative(self, x):
         return torch.sigmoid(x)*(1 - torch.sigmoid(x))
+
+
+class NoSquasher(Squasher):
+
+    def squash(self, x):
+        return x
+
+    def derivative(self, x):
+        return torch.Tensor([1])
+
