@@ -29,16 +29,14 @@ class ReplayBuffer:
 
         indices = np.random.randint(0, len(self), batch_size)
 
-        return self.buffer[indices]
+        return self.buffer[indices]  ##return list of dicts
+
     # info can be env_name and other details
     def save_buffer(self, path, info='env'):
         if path is None:
             if info:
                 path = os.makedirs('/data/replay_memory/{}'.format(info), exist_ok=True)
-        pickle.dump(self.buffer,path)
+        pickle.dump(self.buffer, path)
 
-
-    def load_buffer(self,path):
-        self.buffer=pickle.load(os.open(path))
-
-
+    def load_buffer(self, path):
+        self.buffer = pickle.load(os.open(path))

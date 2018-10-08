@@ -4,11 +4,10 @@ import robo_rl.common.utils.nn_utils as nn_utils
 import robo_rl.common.utils.utils as utils
 import torch
 import torch.nn as nn
-from robo_rl.common.networks.value_network import LinearQNetwork, LinearValueNetwork
+from robo_rl.robo_rl.common.networks.value_network import LinearQNetwork, LinearValueNetwork
 from robo_rl.common.utils.nn_utils import soft_update, hard_update
-from robo_rl.sac.gaussian_policy import GaussianPolicy
-from torch.optim import Adam
 
+from torch.optim import Adam
 
 
 def n_critics(state_dim, action_dim, hidden_dim, num_q):
@@ -19,17 +18,17 @@ def n_critics(state_dim, action_dim, hidden_dim, num_q):
 
 
 class SAC:
-    def __init__(self, action_dim, state_dim, hidden_dim, writer, discount_factor=0.99, scale_reward=3,
-                 reparameterize=True, target_update_interval=1000, lr=3e-4, soft_update_tau=0.005,
-                 td3=False):
+    def __init__(self, action_dim, state_dim, hidden_dim, discount_factor=0.99, scale_reward=3,
+                 reparam=True, target_update_interval=1000, lr=3e-4, soft_update_tau=0.005,
+                 td3=False, deterministic=False):
 
+        self.deterministic = deterministic
         self.action_dim = action_dim
         self.state_dim = state_dim
         self.hidden_dim = hidden_dim
-        self.writer = writer
         self.discount_factor = discount_factor
         self.scale_reward = scale_reward
-        self.reparametrize = reparameterize
+        self.reparam = reparam
         self.target_update_interval = target_update_interval
         self.lr = lr
         self.soft_update_tau = soft_update_tau
@@ -59,20 +58,21 @@ class SAC:
         next_state_batch = torch.Tensor(batch['next_state']).detach()
         done_batch = torch.Tensor(batch['done']).detach()
 
-        target_value_D = self.value_target(next_state_batch)
+        value = self.value(state_batch)
+        target_value = self.value_target(next_state_batch)
 
-        # Q^ = scaled reward + discount_factor * exp_target_value(st+1)
-        Q_hat_D = self.scale_reward * reward_batch + (1 - done_batch) * self.discount_factor * target_value_D
+        # q^ = scaled reward + discount_factor * exp_target_value(st+1)
+        q_hat = self.scale_reward * reward_batch + (1 - done_batch) * self.discount_factor * target_value
 
         # Q values for state and action taken from given batch (sampled from replay buffer)
-        Q1_D = self.critics[0](torch.cat([state_batch, action_batch], 1))
-        Q2_D = self.critics[1](torch.cat([state_batch, action_batch], 1))
+        q1_val = self.critics[0](torch.cat([state_batch, action_batch], 1))
+        q2_val = self.critics[1](torch.cat([state_batch, action_batch], 1))
 
         # JQ  ----------------
-        q1_val_loss = mse_loss(Q1_D, Q_hat_D.detach())
-        q2_val_loss = mse_loss(Q2_D, Q_hat_D.detach())
+        q1_val_loss = mse_loss(q1_val, q_hat.detach())
+        q2_val_loss = mse_loss(q2_val, q_hat.detach())
 
-        policy_action, log_prob = self.policy.get_action(state_batch, reparametrize=self.reparametrize)
+        policy_action, log_prob = self.policy.get_action(state_batch, reparam=self.reparam)
 
         # to calculate JV and Jpi state is sampled from buffer but action is sampled from policy
         # Min of 2 q value is used in eqn(6)
@@ -85,22 +85,21 @@ class SAC:
         v_target = Eat~pi (Qmin (st,at) - logpi
         """
         v_target = expected_new_q_value - log_prob
-        value_loss = mse_loss(value_D - v_target.detach())
+        value_loss = mse_loss(value - v_target.detach())
 
         # policy loss
-        if self.reparametrize:
+        if self.reparam:
             # reparameterization trick
             policy_loss = (log_prob - expected_new_q_value.detach()).mean()
             # TODO : ADD regularization losses
 
-
-        self.critics_optimizer.zero_grad()
+        self.critic1_optimizer.zero_grad()
         q1_val_loss.backward()
-        self.critics_optimizer.step()
+        self.critic1_optimizer.step()
 
-        self.critics_optimizer.zero_grad()
+        self.critic2_optimizer.zero_grad()
         q2_val_loss.backward()
-        self.critics_optimizer.step()
+        self.critic2_optimizer.step()
 
         self.value_optimizer.zero_grad()
         value_loss.backward()
@@ -130,7 +129,8 @@ class SAC:
             critic_path = 'model/{}/critic_{}'.format(info, env_name)
         os.makedirs(critic_path, exist_ok=True)
         if value_path is None:
-            value_path = os.makedirs('model/{}/value_{}'.format(info, env_name), exist_ok=True)
+            value_path = 'model/{}/value_{}'.format(info, env_name)
+        os.makedirs(value_path, exist_ok=True)
 
         utils.print_heading("Saving actor,critic,value network parameters")
         torch.save(self.policy.state_dict(), actor_path)
@@ -138,7 +138,7 @@ class SAC:
         torch.save(self.critics.state_dict(), critic_path)
         utils.heading_decorator(bottom=True, print_req=True)
 
-    def load_model(self, model, actor_path, critic_path, value_path):
+    def load_model(self, actor_path, critic_path, value_path):
         utils.print_heading(
             "Loading models from paths: \n actor:{} \n critic:{} \n value:{}".format(actor_path, critic_path,
                                                                                      value_path))
