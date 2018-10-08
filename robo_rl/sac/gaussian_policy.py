@@ -23,7 +23,7 @@ class GaussianPolicy(LinearGaussianNetwork):
         return super().forward(state)
 
     def get_action(self, state, squasher, epsilon=1e-6, reparam=True, deterministic=False, log_std_min=-10,
-                   log_std_max=-1):
+                   log_std_max=-1, evaluate=True):
 
         mean, log_std = self.forward(state)
 

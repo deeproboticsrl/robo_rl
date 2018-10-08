@@ -4,7 +4,7 @@ import robo_rl.common.utils.nn_utils as nn_utils
 import robo_rl.common.utils.utils as utils
 import torch
 import torch.nn as nn
-from robo_rl.robo_rl.common.networks import LinearQNetwork, LinearValueNetwork
+from robo_rl.common.networks import LinearQNetwork, LinearValueNetwork
 from robo_rl.common.utils import soft_update, hard_update
 
 from torch.optim import Adam
@@ -72,7 +72,7 @@ class SAC:
         q1_val_loss = mse_loss(q1_val, q_hat.detach())
         q2_val_loss = mse_loss(q2_val, q_hat.detach())
 
-        policy_action, log_prob = self.policy.get_action(state_batch, reparam=self.reparam)
+        policy_action, log_prob = self.policy.get_action(state_batch, reparam=self.reparam, evaluate=True)
 
         # to calculate JV and Jpi state is sampled from buffer but action is sampled from policy
         # Min of 2 q value is used in eqn(6)

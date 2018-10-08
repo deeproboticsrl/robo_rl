@@ -16,15 +16,15 @@ print(mean, log_std)
 
 tanh_squasher = TanhSquasher()
 print_heading("Action and log_prob with tanh squasher")
-actions, log_prob = policy.get_action(state, tanh_squasher)
+actions, log_prob = policy.get_action(state, tanh_squasher,evaluate=True)
 print(actions, log_prob)
 
 sigmoid_squasher = SigmoidSquasher()
 print_heading("Action and log_prob with sigmoid squasher")
-actions, log_prob = policy.get_action(state, sigmoid_squasher)
+actions, log_prob = policy.get_action(state, sigmoid_squasher, evaluate=True)
 print(actions, log_prob)
 
 tanh_squasher = TanhSquasher()
 print_heading("Action and log_prob with tanh squasher deterministically")
-actions, log_prob = policy.get_action(state, tanh_squasher, deterministic=True)
+actions, log_prob = policy.get_action(state, tanh_squasher, deterministic=True, evaluate=True)
 print(actions, log_prob)
