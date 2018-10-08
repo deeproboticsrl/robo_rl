@@ -4,4 +4,4 @@
 2. Reward scale is the most important hyperparameter
 3. Learning rate schedule?
 4. SAC + unbiased HER
-5. SAC + TD3
+- [x] SAC + TD3
