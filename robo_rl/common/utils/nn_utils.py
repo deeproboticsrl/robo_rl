@@ -9,9 +9,8 @@ def xavier_initialisation(*module):
             nn.init.xavier_normal_(modules[i].weight.data)
 
 
-def print_all_modules(network):
-    for idx, module in enumerate(network.modules()):
-        print(idx, '->', module)
+def print_network_architecture(network):
+    print(next(network.modules()))
 
 
 def no_activation(x):

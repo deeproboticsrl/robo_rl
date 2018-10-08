@@ -6,24 +6,26 @@ from torch.distributions import Normal
 
 
 # GMM policy L to be implemented
-# hidden_dim is now array of hidden layers e.g =[20,30] First hidden layer has 20 units and 2nd has 30 units
 
 class GaussianPolicy(LinearGaussianNetwork):
 
-    def __init__(self, state_dim, action_dim, hidden_dim, layer_norm=True):
+    def __init__(self, state_dim, action_dim, hidden_dim, is_layer_norm=True):
 
         layers_size = [state_dim]
         layers_size.extend(hidden_dim)
         layers_size.append(action_dim)
-        super().__init__(layers_size, layer_norm)
+        super().__init__(layers_size=layers_size, is_layer_norm=is_layer_norm, final_layer_function=no_activation,
+                         activation_function=torchfunc.elu)
 
     def forward(self, state):
         """ returns mean and log_std after a forward pass through a linear neural network
         """
-        return super().forward(state, final_layer_function=no_activation, activation_function=torchfunc.elu)
+        return super().forward(state)
+
 
     def get_action(self, state, squasher, epsilon=1e-6, reparameterize=True, deterministic=False,
                    log_std_min=-10, log_std_max=-1):
+
 
         mean, log_std = self.forward(state)
 
@@ -42,6 +44,9 @@ class GaussianPolicy(LinearGaussianNetwork):
                 z = normal.sample()
 
         action = squasher.squash(z)
+
+        if not evaluate:
+            return action
 
         log_prob = normal.log_prob(z) - torch.log(squasher.derivative(z) + epsilon)
 

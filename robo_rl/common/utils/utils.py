@@ -12,6 +12,5 @@ def heading_decorator(bottom=False, top=False, print_req=False):
             print(deco)
 
 
-
 def print_heading(heading, ):
     print(heading_decorator(top=True) + heading + heading_decorator(bottom=True))

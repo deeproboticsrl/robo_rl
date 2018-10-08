@@ -9,7 +9,7 @@ hidden_sizes = [4, 3]
 discriminator = Discriminator(input=input,hidden_layer=hidden_sizes)
 
 utils.print_heading("Network architecture")
-nn_utils.print_all_modules(discriminator)
+nn_utils.print_network_architecture(discriminator)
 
 # batch of inputs are supported implicitly in forward
 x = torch.Tensor([1, 2])
