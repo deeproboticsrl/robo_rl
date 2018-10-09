@@ -4,7 +4,7 @@ import torch.nn as nn
 class LinearNetwork(nn.Module):
 
     def __init__(self, layers_size, final_layer_function, activation_function, is_layer_norm=True,
-                 is_final_layer_norm=False, is_dropout=False, dropout_probability=0.5):
+                 is_final_layer_norm=False, is_dropout=False, dropout_probability=0.5, bias=True):
         """
         Arguments:
 
@@ -33,7 +33,7 @@ class LinearNetwork(nn.Module):
         self.is_dropout = is_dropout
 
         super().__init__()
-        self.linear_layers = nn.ModuleList([nn.Linear(layers_size[i], layers_size[i + 1])
+        self.linear_layers = nn.ModuleList([nn.Linear(layers_size[i], layers_size[i + 1], bias=bias)
                                             for i in range(len(layers_size) - 1)])
         if self.is_layer_norm:
             # applied on outputs of hidden layers
@@ -71,8 +71,8 @@ class LinearGaussianNetwork(LinearNetwork):
         """
         super().__init__(layers_size[:-1],final_layer_function, activation_function, is_layer_norm,
                          is_final_layer_norm=True)
-        self.mean_layer = nn.Linear(layers_size[-2], layers_size[-1])
-        self.log_std_layer = nn.Linear(layers_size[-2], layers_size[-1])
+        self.mean_layer = nn.Linear(layers_size[-2], layers_size[-1],bias=False)
+        self.log_std_layer = nn.Linear(layers_size[-2], layers_size[-1],bias=False)
 
     def forward(self, x):
         x = super().forward(x)

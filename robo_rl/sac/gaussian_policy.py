@@ -47,10 +47,13 @@ class GaussianPolicy(LinearGaussianNetwork):
         if not evaluate:
             return action
 
-        log_prob = normal.log_prob(z) - torch.log(squasher.derivative(z) + epsilon)
+        if deterministic:
+            log_prob = torch.Tensor([0])
+        else:
+            log_prob = normal.log_prob(z) - torch.log(squasher.derivative(z) + epsilon)
 
-        # If tensor is 5*4, then the row sum wil be 5*1, corresponding to batch size of 5
-        log_prob = log_prob.sum(-1, keepdim=True)
+            # If tensor is 5*4, then the row sum wil be 5*1, corresponding to batch size of 5
+            log_prob = log_prob.sum(-1, keepdim=True)
 
         return action, log_prob
 
