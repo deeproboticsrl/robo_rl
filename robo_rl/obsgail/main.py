@@ -5,10 +5,10 @@ import gym
 import numpy as np
 import torch
 from osim.env import ProstheticsEnv
-from robo_rl.common import Buffer
+from robo_rl.common.networks import LinearDiscriminator
+from robo_rl.obsgail import ExpertBuffer, ObsGAIL
 from robo_rl.sac import SAC, SigmoidSquasher
 from tensorboardX import SummaryWriter
-from robo_rl.common.utils import gym_torchify
 
 parser = argparse.ArgumentParser(description='PyTorch on fire')
 parser.add_argument('--env_name', default="Reacher-v2")
@@ -33,8 +33,6 @@ parser.add_argument('--num_episodes', type=int, default=10000, help='number of e
 parser.add_argument('--updates_per_step', type=int, default=1, help='updates per step')
 parser.add_argument('--save_iter', type=int, default=100, help='save model and buffer '
                                                                'after certain number of iteration')
-
-# TODO add weight decay in networks. it corresponds to L2 regularisation
 args = parser.parse_args()
 if args.env_name == "ProstheticsEnv":
     env = ProstheticsEnv()
@@ -48,6 +46,7 @@ torch.manual_seed(args.env_seed)
 np.random.seed(args.env_seed)
 
 # TODO make sure state_dim action_dim works correctly for all kinds of envs.
+
 action_dim = env.action_space.shape[0]
 state_dim = env.observation_space.shape[0]
 hidden_dim = [args.hidden_dim, args.hidden_dim]
@@ -63,61 +62,31 @@ sac = SAC(action_dim=action_dim, state_dim=state_dim, hidden_dim=hidden_dim, dis
           target_update_interval=args.target_update_interval, lr=args.lr, soft_update_tau=args.soft_update_tau,
           td3_update_interval=args.td3_update_interval, squasher=squasher)
 
-buffer = Buffer(capacity=args.buffer_capacity)
-rewards = []
-update_count = 1
-max_reward = -np.inf
+# TODO use argparse
 
+expert_buffer_capacity = 1000
+expert_buffer = ExpertBuffer()
 
-def ld_to_dl(batch_list_of_dicts):
-    batch_dict_of_lists = {}
-    for k in batch_list_of_dicts[0].keys():
-        batch_dict_of_lists[k] = []
-    for dictionary in batch_list_of_dicts:
-        for k in batch_list_of_dicts[0].keys():
-            batch_dict_of_lists[k].append(dictionary[k])
-    return batch_dict_of_lists
+# TODO use proper path
+expert_file_path = "experts/"
 
+expert_buffer.add_from_file(expert_file_path=expert_file_path)
 
-for cur_episode in range(args.num_episodes):
-    print(cur_episode)
+# TODO take from env
+discriminator_input_dim = 1
+discriminator_hidden_dim = [2, 3]
 
-    state = torch.Tensor(env.reset())
-    done = False
-    timestep = 0
+# TODO use VAE
+discriminator = LinearDiscriminator(input_dim=discriminator_input_dim, hidden_dim=discriminator_hidden_dim)
 
-    while not done and timestep <= args.max_time_steps:
-        episode_reward = 0
-        action = sac.get_action(state).detach()
-        observation, reward, done, _ = gym_torchify(env.step(action))
-        sample = dict(state=state, action=action, reward=reward, next_state=observation, done=done)
-        buffer.add(sample)
-        if len(buffer) > 10 * args.sample_batch_size:
-            for num_update in range(args.updates_per_step):
-                update_count += 1
-                batch_list_of_dicts = buffer.sample(batch_size=args.sample_batch_size)
-                batch_dict_of_lists = ld_to_dl(batch_list_of_dicts)
+obsgail = ObsGAIL(expert_buffer=expert_buffer, discriminator=discriminator, off_policy_algo=sac)
 
-                """ Combined Experience replay. Add online transition too.
-                """
-                for k in batch_list_of_dicts[0].keys():
-                    batch_dict_of_lists[k].append(sample[k])
-                sac.policy_update(batch_dict_of_lists, update_number=update_count)
+# TODO get from argparse
+obsgail.train(num_iterations=,learning_rate=,learning_rate_decay=,learning_rate_decay_training_steps=)
 
-        episode_reward += reward
-        state = observation
-        timestep += 1
+# TODO Gradient clipping in actor net
 
-    if episode_reward > max_reward:
-        max_reward = episode_reward
-        # save current best model
-        print(f"\nNew best model with reward {max_reward}")
-        sac.save_model(env_name=args.env_name, info='best')
+# TODO For SAC use reparam trick with normalising flow(??)
 
-    if cur_episode % args.save_iter == 0:
-        print(f"\nSaving periodically - iteration {cur_episode}")
-        sac.save_model(env_name=args.env_name, info=str(cur_episode))
-        buffer.save_buffer(info=args.env_name)
-
-    sac.writer.add_scalar("Episode Reward", episode_reward, cur_episode)
-    rewards.append(episode_reward)
+# TODO regularisation in form of gradient penalties for stable learning. makes GAN stable. Refer paper
+# TODO Should we use simple weight regularisation then?

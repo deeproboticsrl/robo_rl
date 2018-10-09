@@ -1,4 +1,4 @@
-from robo_rl.common.networks.linear_network import LinearNetwork
+from robo_rl.common.networks import LinearNetwork
 
 
 class LinearDiscriminator(LinearNetwork):
