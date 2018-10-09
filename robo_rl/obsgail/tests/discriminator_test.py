@@ -1,9 +1,9 @@
-from robo_rl.obsgail.discriminator import Discriminator
+from robo_rl.common.networks.discriminator import Discriminator
 import robo_rl.common.utils.utils as utils
 import torch
 import robo_rl.common.utils.nn_utils as nn_utils
 from torchviz import make_dot
-import robo_rl.common.utils.nn_utils
+
 input =2
 hidden_sizes = [4, 3]
 discriminator = Discriminator(input=input,hidden_layer=hidden_sizes)
