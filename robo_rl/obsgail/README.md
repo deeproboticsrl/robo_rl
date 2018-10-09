@@ -9,3 +9,4 @@
 7. [Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor](https://arxiv.org/pdf/1801.01290.pdf)
 8. [Data Augmentation Generative Adversarial Networks](https://arxiv.org/pdf/1711.04340.pdf)
 9. [Variational Discriminator Bottleneck: Improving Imitation Learning, Inverse RL, and GANs by Constraining Information Flow](https://xbpeng.github.io/projects/VDB/2018_VDB.pdf)
+10. [Improved Training of Wasserstein GANs](https://arxiv.org/pdf/1704.00028.pdf)
