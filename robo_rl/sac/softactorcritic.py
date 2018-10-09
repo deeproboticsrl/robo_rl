@@ -17,7 +17,8 @@ def n_critics(state_dim, action_dim, hidden_dim, num_q):
 
 
 class SAC:
-    def __init__(self, action_dim, state_dim, hidden_dim, writer, squasher,optimizer, discount_factor=0.99, scale_reward=3,
+    def __init__(self, action_dim, state_dim, hidden_dim, writer, squasher, optimizer, discount_factor=0.99,
+                 scale_reward=3,
                  reparam=True, target_update_interval=1, lr=3e-4, soft_update_tau=0.005,
                  td3_update_interval=100, deterministic=False, weight_decay=0.001):
         self.writer = writer
@@ -45,7 +46,7 @@ class SAC:
         self.value_optimizer = optimizer(self.value.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         self.policy_optimizer = optimizer(self.policy.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         self.critic1_optimizer = optimizer(self.critics[0].parameters(), lr=self.lr, weight_decay=self.weight_decay)
-        self.critic2_optimizer = optimizer(self.critics[1].parameters(), lr=self.lr, weight_decay = self.weight_decay)
+        self.critic2_optimizer = optimizer(self.critics[1].parameters(), lr=self.lr, weight_decay=self.weight_decay)
 
         hard_update(target=self.value, original=self.value_target)
 
@@ -96,21 +97,30 @@ class SAC:
             # zero grad on critic will clear there policy loss grads
             policy_loss = (log_prob - min_q_value).mean()
 
+        # clip_val = 0.01
         self.critic1_optimizer.zero_grad()
         q1_val_loss.backward()
+        # for k, v in self.critics[0].named_parameters():
+        #     torch.clamp(v.grad, min=-clip_val, max=clip_val)
         self.critic1_optimizer.step()
 
         self.critic2_optimizer.zero_grad()
         q2_val_loss.backward()
+        # for k, v in self.critics[1].named_parameters():
+        #     torch.clamp(v.grad, min=-clip_val, max=clip_val)
         self.critic2_optimizer.step()
 
         self.value_optimizer.zero_grad()
         value_loss.backward()
+        # for k, v in self.value.named_parameters():
+        #     torch.clamp(v.grad, min=-clip_val, max=clip_val)
         self.value_optimizer.step()
 
         if update_number % self.td3_update_interval == 0:
             self.policy_optimizer.zero_grad()
             policy_loss.backward()
+            # for k, v in self.policy.named_parameters():
+            #     torch.clamp(v.grad, min=-clip_val, max=clip_val)
             self.policy_optimizer.step()
 
         if self.target_update_interval > 1:
@@ -120,10 +130,10 @@ class SAC:
             if self.deterministic is False:
                 soft_update(original=self.value, target=self.value_target, t=self.soft_update_tau)
 
-        self.writer.add_scalar("Value loss", value_loss, update_number)
-        self.writer.add_scalar("Q Value 1 loss", q1_val_loss, update_number)
-        self.writer.add_scalar("Q Value 2 loss", q2_val_loss, update_number)
-        self.writer.add_scalar("Policy loss", policy_loss, update_number)
+        self.writer.add_scalar("Value loss", value_loss, global_step=update_number)
+        self.writer.add_scalar("Q Value 1 loss", q1_val_loss, global_step=update_number)
+        self.writer.add_scalar("Q Value 2 loss", q2_val_loss, global_step=update_number)
+        self.writer.add_scalar("Policy loss", policy_loss, global_step=update_number)
 
     def save_model(self, env_name, actor_path=None, critic_path=None, value_path=None, info=1):
 

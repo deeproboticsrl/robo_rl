@@ -6,8 +6,8 @@ import torch
 from robo_rl.common import Buffer
 from robo_rl.common.utils import gym_torchify, print_heading
 from robo_rl.sac import SAC, TanhSquasher
-from tensorboardX import SummaryWriter
 from robo_rl.sac import get_sac_parser
+from tensorboardX import SummaryWriter
 from torch.optim import Adam, SGD
 
 parser = get_sac_parser()
@@ -25,14 +25,22 @@ state_dim = env.observation_space.spaces["observation"].shape[0]
 goal_dim = env.observation_space.spaces["achieved_goal"].shape[0]
 hidden_dim = [args.hidden_dim, args.hidden_dim]
 
-unbiased = True
+unbiased = False
+rewarding = True
 if unbiased:
     logdir = "./tensorboard_log/unbiased_her"
 else:
     logdir = "./tensorboard_log/biased_her"
 
+if rewarding:
+    logdir += "_rewarding"
+else:
+    logdir += "_unrewarding"
+
+
 logdir += f"_reward_scale={args.scale_reward}_discount_factor={args.discount_factor}_tau={args.soft_update_tau}"
-logdir += "_corrected_policy_loss"
+logdir += f"_corrected_policy_loss_samples={args.sample_batch_size}_SGD"
+logdir += f"_td3={args.td3_update_interval}"
 
 os.makedirs(logdir, exist_ok=True)
 writer = SummaryWriter(log_dir=logdir)
@@ -40,7 +48,7 @@ writer = SummaryWriter(log_dir=logdir)
 squasher = TanhSquasher()
 
 sac = SAC(action_dim=action_dim, state_dim=state_dim + goal_dim, hidden_dim=hidden_dim,
-          discount_factor=args.discount_factor,optimizer=Adam,
+          discount_factor=args.discount_factor,optimizer=SGD,
           writer=writer, scale_reward=args.scale_reward, reparam=args.reparam, deterministic=args.deterministic,
           target_update_interval=args.target_update_interval, lr=args.lr, soft_update_tau=args.soft_update_tau,
           td3_update_interval=args.td3_update_interval, squasher=squasher,weight_decay=args.weight_decay)
@@ -90,10 +98,20 @@ for cur_episode in range(1, args.num_episodes+1):
         state = observation["observation"]
         timestep += 1
 
-    # add hindsight transitions
-    for transition in episode_buffer:
+    for name, param in sac.policy.named_parameters():
+        writer.add_histogram("policy_"+name, param.clone().cpu().data.numpy(), cur_episode)
+    for name, param in sac.value.named_parameters():
+        writer.add_histogram("value_"+name, param.clone().cpu().data.numpy(), cur_episode)
+    for name, param in sac.critics[0].named_parameters():
+        writer.add_histogram("critic1_"+name, param.clone().cpu().data.numpy(), cur_episode)
+    for name, param in sac.critics[1].named_parameters():
+        writer.add_histogram("critic2_"+name, param.clone().cpu().data.numpy(), cur_episode)
 
-        final_goal = observation["achieved_goal"]
+    # add hindsight transitions
+    final_goal = observation["achieved_goal"]
+    for transition in episode_buffer:
+        if rewarding:
+            final_goal = transition["achieved_goal"]
         state = torch.cat([transition["state"], final_goal])
         log_prob_final_goal = sac.policy.compute_log_prob_action(state, sac.squasher, transition["action"]).detach()
 
@@ -102,10 +120,13 @@ for cur_episode in range(1, args.num_episodes+1):
 
         if unbiased:
             reward = unbiased_reward
+        done = transition["done"]
+        if rewarding:
+            done = torch.Tensor([True])
         hindisght_sample = dict(state=state,
                                 action=transition["action"],
                                 reward=torch.Tensor([reward]).detach(),
-                                done=transition["done"],
+                                done=done,
                                 next_state=torch.cat([transition["next_state"], final_goal]))
         buffer.add(hindisght_sample)
 
@@ -128,7 +149,7 @@ for cur_episode in range(1, args.num_episodes+1):
 
             success = False
             while not done and timestep <= args.max_time_steps:
-                action = sac.get_action(torch.cat([state, desired_goal]),deterministic=True).detach()
+                action = sac.get_action(torch.cat([state, desired_goal]), deterministic=True).detach()
                 observation, reward, done, info = gym_torchify(env.step(action.numpy()), is_goal_env=True)
                 state = observation["observation"]
                 timestep += 1
