@@ -5,6 +5,14 @@ from robo_rl.common.utils import no_activation
 from torch.distributions import Normal
 
 
+def gaaf_relu(x):
+    k = 10000
+    g = (x*k - torch.floor(x*k) - 0.5)/k
+    s = torch.sigmoid(x-0.5)
+    y = torchfunc.relu(x) + g * s
+    return y
+
+
 # GMM policy L to be implemented
 
 class GaussianPolicy(LinearGaussianNetwork):
@@ -15,7 +23,7 @@ class GaussianPolicy(LinearGaussianNetwork):
         layers_size.extend(hidden_dim)
         layers_size.append(action_dim)
         super().__init__(layers_size=layers_size, is_layer_norm=is_layer_norm, final_layer_function=no_activation,
-                         activation_function=torchfunc.elu)
+                         activation_function=gaaf_relu)
         self.log_std_min = log_std_min
         self.log_std_max = log_std_max
 
