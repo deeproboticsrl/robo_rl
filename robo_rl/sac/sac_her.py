@@ -43,7 +43,7 @@ else:
 
 logdir += f"_reward_scale={args.scale_reward}_discount_factor={args.discount_factor}_tau={args.soft_update_tau}"
 logdir += f"_corrected_policy_loss_samples={args.sample_batch_size}_Adam_hidden_dim={hidden_dim}"
-logdir += f"_td3={args.td3_update_interval}_relu_lr=0.01_novalbias_weight_decay={args.weight_decay}"
+logdir += f"_td3={args.td3_update_interval}_GAAF_relu_lr=0.01_novalbias_weight_decay={args.weight_decay}"
 logdir += f"_updates={args.updates_per_step}_action_penalty_val_target_clip"
 
 os.makedirs(logdir, exist_ok=True)
@@ -176,5 +176,5 @@ for cur_episode in range(1, args.num_episodes+1):
 
     if cur_episode % args.save_iter == 0:
         print(f"\nSaving periodically - iteration {cur_episode}")
-        sac.save_model(env_name=args.env_name, info=str(cur_episode))
+        sac.save_model(env_name=args.env_name, info="periodic")
         buffer.save_buffer(info=args.env_name)
