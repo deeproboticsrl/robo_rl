@@ -6,7 +6,7 @@ parser.add_argument('--soft_update_tau', type=float, default=0.005, help="target
 parser.add_argument('--lr', type=float, default=0.0003, help="learning rate")
 parser.add_argument('--weight_decay', type=float, default=0.001, help="regularisation constant for network weights")
 parser.add_argument('--discount_factor', type=float, default=0.99, help='discount factor gamma')
-parser.add_argument('--scale_reward', type=int, default=0.01,
+parser.add_argument('--scale_reward', type=float, default=0.001,
                     help="reward scaling humannoid_v1=20, humnanoid_rllab=10, other mujoco=5")
 parser.add_argument('--reparam', type=bool, default=True, help="True if reparameterization trick is applied")
 parser.add_argument('--deterministic', type=bool, default=False)

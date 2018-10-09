@@ -108,7 +108,7 @@ class SAC:
         value_loss.backward()
         self.value_optimizer.step()
 
-        if update_number % self.td3_update_interval:
+        if update_number % self.td3_update_interval == 0:
             self.policy_optimizer.zero_grad()
             policy_loss.backward()
             self.policy_optimizer.step()
