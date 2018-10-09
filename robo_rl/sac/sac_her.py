@@ -1,4 +1,3 @@
-import argparse
 import os
 
 import gym
@@ -8,30 +7,10 @@ from robo_rl.common import Buffer
 from robo_rl.common.utils import gym_torchify, print_heading
 from robo_rl.sac import SAC, TanhSquasher
 from tensorboardX import SummaryWriter
+from robo_rl.sac import get_sac_parser
 
-parser = argparse.ArgumentParser(description='PyTorch on fire')
+parser = get_sac_parser()
 parser.add_argument('--env_name', default="FetchReach-v1", help="Should be GoalEnv")
-parser.add_argument('--env_seed', type=int, default=0, help="environment seed")
-parser.add_argument('--soft_update_tau', type=float, default=0.005, help="target smoothening coefficient tau")
-parser.add_argument('--lr', type=float, default=0.0003, help="learning rate")
-parser.add_argument('--discount_factor', type=float, default=0.99, help='discount factor gamma')
-parser.add_argument('--scale_reward', type=int, default=10,
-                    help="reward scaling humannoid_v1=20, humnanoid_rllab=10, other mujoco=5")
-parser.add_argument('--reparam', type=bool, default=True, help="True if reparameterization trick is applied")
-parser.add_argument('--deterministic', type=bool, default=False)
-parser.add_argument('--target_update_interval', type=int, default=1,
-                    help="used in case of hard update")
-parser.add_argument('--td3_update_interval', type=int, default=50,
-                    help="used in case of delayed update for policy")
-
-parser.add_argument('--hidden_dim', type=int, default=256, help='no of hidden units ')
-parser.add_argument('--buffer_capacity', type=int, default=1000000, help='buffer capacity')
-parser.add_argument('--sample_batch_size', type=int, default=256, help='number of samples from replay buffer')
-parser.add_argument('--max_time_steps', type=int, default=10000, help='max number of env timesteps per episodes')
-parser.add_argument('--num_episodes', type=int, default=101, help='number of episodes')
-parser.add_argument('--updates_per_step', type=int, default=100, help='updates per step')
-parser.add_argument('--save_iter', type=int, default=100, help='save model and buffer '
-                                                               'after certain number of iteration')
 args = parser.parse_args()
 
 env = gym.make(args.env_name)
@@ -45,12 +24,13 @@ state_dim = env.observation_space.spaces["observation"].shape[0]
 goal_dim = env.observation_space.spaces["achieved_goal"].shape[0]
 hidden_dim = [args.hidden_dim, args.hidden_dim]
 
-unbiased = True
+unbiased = False
 if unbiased:
-    logdir = "./tensorboard_log/unbiased_her/"
+    logdir = "./tensorboard_log/unbiased_her"
 else:
-    logdir = "./tensorboard_log/biased_her/"
+    logdir = "./tensorboard_log/biased_her"
 
+logdir += f"_reward_scale={args.scale_reward}"
 os.makedirs(logdir, exist_ok=True)
 writer = SummaryWriter(log_dir=logdir)
 
@@ -60,7 +40,7 @@ sac = SAC(action_dim=action_dim, state_dim=state_dim + goal_dim, hidden_dim=hidd
           discount_factor=args.discount_factor,
           writer=writer, scale_reward=args.scale_reward, reparam=args.reparam, deterministic=args.deterministic,
           target_update_interval=args.target_update_interval, lr=args.lr, soft_update_tau=args.soft_update_tau,
-          td3_update_interval=args.td3_update_interval, squasher=squasher)
+          td3_update_interval=args.td3_update_interval, squasher=squasher,weight_decay=args.weight_decay)
 
 buffer = Buffer(capacity=args.buffer_capacity)
 rewards = []
@@ -80,7 +60,7 @@ def ld_to_dl(batch_list_of_dicts):
 
 # num episodes after which to test
 test_interval = 20
-num_tests = 50
+num_tests = 10
 
 for cur_episode in range(1, args.num_episodes+1):
     print(f"Starting episode {cur_episode}")

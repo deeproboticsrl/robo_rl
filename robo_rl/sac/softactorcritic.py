@@ -20,7 +20,7 @@ def n_critics(state_dim, action_dim, hidden_dim, num_q):
 class SAC:
     def __init__(self, action_dim, state_dim, hidden_dim, writer, squasher, discount_factor=0.99, scale_reward=3,
                  reparam=True, target_update_interval=1, lr=3e-4, soft_update_tau=0.005,
-                 td3_update_interval=100, deterministic=False):
+                 td3_update_interval=100, deterministic=False, weight_decay=0.001):
         self.writer = writer
         self.deterministic = deterministic
         self.squasher = squasher
@@ -34,6 +34,7 @@ class SAC:
         self.lr = lr
         self.soft_update_tau = soft_update_tau
         self.td3_update_interval = td3_update_interval
+        self.weight_decay = weight_decay
 
         self.value = LinearValueNetwork(state_dim=self.state_dim, hidden_dim=self.hidden_dim)
         self.value_target = LinearValueNetwork(state_dim=self.state_dim, hidden_dim=self.hidden_dim)
@@ -42,10 +43,10 @@ class SAC:
                                  num_q=2)
         nn_utils.xavier_initialisation(self.value, self.policy, self.critics)
 
-        self.value_optimizer = Adam(self.value.parameters(), lr=self.lr)
-        self.policy_optimizer = Adam(self.policy.parameters(), lr=self.lr)
-        self.critic1_optimizer = Adam(self.critics[0].parameters(), lr=self.lr)
-        self.critic2_optimizer = Adam(self.critics[1].parameters(), lr=self.lr)
+        self.value_optimizer = Adam(self.value.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        self.policy_optimizer = Adam(self.policy.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        self.critic1_optimizer = Adam(self.critics[0].parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        self.critic2_optimizer = Adam(self.critics[1].parameters(), lr=self.lr, weight_decay = self.weight_decay)
 
         hard_update(target=self.value, original=self.value_target)
 
