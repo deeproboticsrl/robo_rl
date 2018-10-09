@@ -2,10 +2,10 @@ import argparse
 
 parser = argparse.ArgumentParser(description='PyTorch on fire')
 parser.add_argument('--env_seed', type=int, default=1105, help="environment seed")
-parser.add_argument('--soft_update_tau', type=float, default=0.005, help="target smoothening coefficient tau")
+parser.add_argument('--soft_update_tau', type=float, default=0.0005, help="target smoothening coefficient tau")
 parser.add_argument('--lr', type=float, default=0.0003, help="learning rate")
 parser.add_argument('--weight_decay', type=float, default=0.001, help="regularisation constant for network weights")
-parser.add_argument('--discount_factor', type=float, default=0.99, help='discount factor gamma')
+parser.add_argument('--discount_factor', type=float, default=0.999, help='discount factor gamma')
 parser.add_argument('--scale_reward', type=float, default=0.001,
                     help="reward scaling humannoid_v1=20, humnanoid_rllab=10, other mujoco=5")
 parser.add_argument('--reparam', type=bool, default=True, help="True if reparameterization trick is applied")

@@ -7,7 +7,6 @@ import torch.nn as nn
 from robo_rl.common.networks import LinearQNetwork, LinearValueNetwork
 from robo_rl.common.utils import soft_update, hard_update
 from robo_rl.sac import GaussianPolicy
-from torch.optim import Adam
 
 
 def n_critics(state_dim, action_dim, hidden_dim, num_q):
@@ -18,7 +17,7 @@ def n_critics(state_dim, action_dim, hidden_dim, num_q):
 
 
 class SAC:
-    def __init__(self, action_dim, state_dim, hidden_dim, writer, squasher, discount_factor=0.99, scale_reward=3,
+    def __init__(self, action_dim, state_dim, hidden_dim, writer, squasher,optimizer, discount_factor=0.99, scale_reward=3,
                  reparam=True, target_update_interval=1, lr=3e-4, soft_update_tau=0.005,
                  td3_update_interval=100, deterministic=False, weight_decay=0.001):
         self.writer = writer
@@ -43,10 +42,10 @@ class SAC:
                                  num_q=2)
         nn_utils.xavier_initialisation(self.value, self.policy, self.critics)
 
-        self.value_optimizer = Adam(self.value.parameters(), lr=self.lr, weight_decay=self.weight_decay)
-        self.policy_optimizer = Adam(self.policy.parameters(), lr=self.lr, weight_decay=self.weight_decay)
-        self.critic1_optimizer = Adam(self.critics[0].parameters(), lr=self.lr, weight_decay=self.weight_decay)
-        self.critic2_optimizer = Adam(self.critics[1].parameters(), lr=self.lr, weight_decay = self.weight_decay)
+        self.value_optimizer = optimizer(self.value.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        self.policy_optimizer = optimizer(self.policy.parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        self.critic1_optimizer = optimizer(self.critics[0].parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        self.critic2_optimizer = optimizer(self.critics[1].parameters(), lr=self.lr, weight_decay = self.weight_decay)
 
         hard_update(target=self.value, original=self.value_target)
 
@@ -93,8 +92,9 @@ class SAC:
 
         # policy loss
         if self.reparam:
-            # reparameterization trick
-            policy_loss = (log_prob - min_q_value.detach()).mean()
+            # reparameterization trick.
+            # zero grad on critic will clear there policy loss grads
+            policy_loss = (log_prob - min_q_value).mean()
 
         self.critic1_optimizer.zero_grad()
         q1_val_loss.backward()

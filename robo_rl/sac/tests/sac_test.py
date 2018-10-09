@@ -10,6 +10,7 @@ from robo_rl.common.utils import soft_update
 from robo_rl.sac import SAC
 from robo_rl.sac import TanhSquasher
 from tensorboardX import SummaryWriter
+from torch.optim import Adam, SGD
 
 env = gym.make("FetchReach-v1")
 
@@ -30,7 +31,8 @@ logdir = "./tensorboard_log/"
 os.makedirs(logdir, exist_ok=True)
 writer = SummaryWriter(log_dir=logdir)
 
-sac = SAC(state_dim=state_dim, action_dim=action_dim, writer=writer, hidden_dim=hidden_dim, squasher=squasher)
+sac = SAC(state_dim=state_dim, action_dim=action_dim, writer=writer, hidden_dim=hidden_dim, squasher=squasher,
+          optimizer=SGD)
 
 print_heading("Architecture of value network")
 print_network_architecture(sac.value)
@@ -148,7 +150,7 @@ print("q_2 current".ljust(25), q2_current_policy[0], q2_current_policy[1])
 print("value ".ljust(25), value[0], value[1])
 
 print_heading("Calculation of Jpi")
-policy_loss = (log_prob - min_q_value.detach()).mean()
+policy_loss = (log_prob - min_q_value).mean()
 print("policy loss", policy_loss)
 
 print_heading("Update policy. log prob should change. Q1 Q2 with buffer actions should not")

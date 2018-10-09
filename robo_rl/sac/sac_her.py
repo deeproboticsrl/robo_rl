@@ -8,6 +8,7 @@ from robo_rl.common.utils import gym_torchify, print_heading
 from robo_rl.sac import SAC, TanhSquasher
 from tensorboardX import SummaryWriter
 from robo_rl.sac import get_sac_parser
+from torch.optim import Adam, SGD
 
 parser = get_sac_parser()
 parser.add_argument('--env_name', default="FetchReach-v1", help="Should be GoalEnv")
@@ -24,20 +25,22 @@ state_dim = env.observation_space.spaces["observation"].shape[0]
 goal_dim = env.observation_space.spaces["achieved_goal"].shape[0]
 hidden_dim = [args.hidden_dim, args.hidden_dim]
 
-unbiased = False
+unbiased = True
 if unbiased:
     logdir = "./tensorboard_log/unbiased_her"
 else:
     logdir = "./tensorboard_log/biased_her"
 
-logdir += f"_reward_scale={args.scale_reward}"
+logdir += f"_reward_scale={args.scale_reward}_discount_factor={args.discount_factor}_tau={args.soft_update_tau}"
+logdir += "_corrected_policy_loss"
+
 os.makedirs(logdir, exist_ok=True)
 writer = SummaryWriter(log_dir=logdir)
 
 squasher = TanhSquasher()
 
 sac = SAC(action_dim=action_dim, state_dim=state_dim + goal_dim, hidden_dim=hidden_dim,
-          discount_factor=args.discount_factor,
+          discount_factor=args.discount_factor,optimizer=Adam,
           writer=writer, scale_reward=args.scale_reward, reparam=args.reparam, deterministic=args.deterministic,
           target_update_interval=args.target_update_interval, lr=args.lr, soft_update_tau=args.soft_update_tau,
           td3_update_interval=args.td3_update_interval, squasher=squasher,weight_decay=args.weight_decay)
