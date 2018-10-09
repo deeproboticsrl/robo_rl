@@ -4,3 +4,5 @@
 3. Learning rate schedule?
 4. SAC + unbiased HER
 - [x] SAC + TD3
+
+[Reading for change of variable technique used for squashing](https://www.stat.washington.edu/~nehemyl/files/UW_MATH-STAT395_functions-random-variables.pdf)
