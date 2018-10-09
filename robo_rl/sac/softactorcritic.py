@@ -52,6 +52,8 @@ class SAC:
 
     def policy_update(self, batch, update_number):
         mse_loss = nn.MSELoss()
+        target_clip_min = -self.scale_reward/(1-self.discount_factor)
+        target_clip_max = 0
 
         """batch is a dict from replay buffer"""
         state_batch = torch.stack(batch['state']).detach()
@@ -65,6 +67,7 @@ class SAC:
 
         # Q^ = scaled reward + discount_factor * exp_target_value(st+1)
         q_hat_buffer = self.scale_reward * reward_batch + (1 - done_batch) * self.discount_factor * target_value
+        q_hat_buffer = torch.clamp(q_hat_buffer, min=target_clip_min, max=target_clip_max)
 
         # Q values for state and action taken from given batch (sampled from replay buffer)
         q1_buffer = self.critics[0](torch.cat([state_batch, action_batch], 1))
@@ -89,13 +92,15 @@ class SAC:
         v_target = Eat~pi (Qmin (st,at) - logpi
         """
         v_target = min_q_value - log_prob
+        v_target = torch.clamp(v_target, min=target_clip_min, max=target_clip_max)
         value_loss = 0.5 * mse_loss(value, v_target.detach())
 
         # policy loss
         if self.reparam:
             # reparameterization trick.
             # zero grad on critic will clear there policy loss grads
-            policy_loss = (log_prob - min_q_value).mean()
+            action_penalty = (policy_action**2).mean()
+            policy_loss = (log_prob - min_q_value).mean() + action_penalty
 
         # clip_val = 0.01
         self.critic1_optimizer.zero_grad()

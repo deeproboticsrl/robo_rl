@@ -23,14 +23,17 @@ np.random.seed(args.env_seed)
 action_dim = env.action_space.shape[0]
 state_dim = env.observation_space.spaces["observation"].shape[0]
 goal_dim = env.observation_space.spaces["achieved_goal"].shape[0]
-hidden_dim = [args.hidden_dim, args.hidden_dim]
+hidden_dim = [args.hidden_dim]*5
 
 unbiased = False
 rewarding = True
+
 if unbiased:
     logdir = "./tensorboard_log/unbiased_her"
 else:
     logdir = "./tensorboard_log/biased_her"
+
+# logdir += "dummy"
 
 if rewarding:
     logdir += "_rewarding"
@@ -39,8 +42,9 @@ else:
 
 
 logdir += f"_reward_scale={args.scale_reward}_discount_factor={args.discount_factor}_tau={args.soft_update_tau}"
-logdir += f"_corrected_policy_loss_samples={args.sample_batch_size}_SGD"
-logdir += f"_td3={args.td3_update_interval}"
+logdir += f"_corrected_policy_loss_samples={args.sample_batch_size}_Adam_hidden_dim={hidden_dim}"
+logdir += f"_td3={args.td3_update_interval}_relu_lr=0.01_novalbias_weight_decay={args.weight_decay}"
+logdir += f"_updates={args.updates_per_step}_action_penalty_val_target_clip"
 
 os.makedirs(logdir, exist_ok=True)
 writer = SummaryWriter(log_dir=logdir)
@@ -48,7 +52,7 @@ writer = SummaryWriter(log_dir=logdir)
 squasher = TanhSquasher()
 
 sac = SAC(action_dim=action_dim, state_dim=state_dim + goal_dim, hidden_dim=hidden_dim,
-          discount_factor=args.discount_factor,optimizer=SGD,
+          discount_factor=args.discount_factor,optimizer=Adam,
           writer=writer, scale_reward=args.scale_reward, reparam=args.reparam, deterministic=args.deterministic,
           target_update_interval=args.target_update_interval, lr=args.lr, soft_update_tau=args.soft_update_tau,
           td3_update_interval=args.td3_update_interval, squasher=squasher,weight_decay=args.weight_decay)
@@ -98,14 +102,15 @@ for cur_episode in range(1, args.num_episodes+1):
         state = observation["observation"]
         timestep += 1
 
+    sac.writer.add_scalar("Policy linear layer 1 weight 0",sac.policy.linear_layers[0].weight[0][0],cur_episode)
     for name, param in sac.policy.named_parameters():
-        writer.add_histogram("policy_"+name, param.clone().cpu().data.numpy(), cur_episode)
+        sac.writer.add_histogram("policy_"+name, param.clone().cpu().data.numpy(), cur_episode)
     for name, param in sac.value.named_parameters():
-        writer.add_histogram("value_"+name, param.clone().cpu().data.numpy(), cur_episode)
+        sac.writer.add_histogram("value_"+name, param.clone().cpu().data.numpy(), cur_episode)
     for name, param in sac.critics[0].named_parameters():
-        writer.add_histogram("critic1_"+name, param.clone().cpu().data.numpy(), cur_episode)
+        sac.writer.add_histogram("critic1_"+name, param.clone().cpu().data.numpy(), cur_episode)
     for name, param in sac.critics[1].named_parameters():
-        writer.add_histogram("critic2_"+name, param.clone().cpu().data.numpy(), cur_episode)
+        sac.writer.add_histogram("critic2_"+name, param.clone().cpu().data.numpy(), cur_episode)
 
     # add hindsight transitions
     final_goal = observation["achieved_goal"]
