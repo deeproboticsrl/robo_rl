@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from robo_rl.common import Buffer
 from robo_rl.common.utils import gym_torchify, print_heading
-from robo_rl.sac import SAC, TanhSquasher
+from robo_rl.sac import SAC, TanhSquasher, GAAFTanhSquasher
 from robo_rl.sac import get_sac_parser
 from tensorboardX import SummaryWriter
 from torch.optim import Adam, SGD
@@ -23,10 +23,10 @@ np.random.seed(args.env_seed)
 action_dim = env.action_space.shape[0]
 state_dim = env.observation_space.spaces["observation"].shape[0]
 goal_dim = env.observation_space.spaces["achieved_goal"].shape[0]
-hidden_dim = [args.hidden_dim]*5
+hidden_dim = [args.hidden_dim]*2
 
 unbiased = False
-rewarding = True
+rewarding = False
 
 if unbiased:
     logdir = "./tensorboard_log/unbiased_her"
@@ -41,10 +41,10 @@ else:
     logdir += "_unrewarding"
 
 
-logdir += f"_reward_scale={args.scale_reward}_discount_factor={args.discount_factor}_tau={args.soft_update_tau}"
+logdir += f"reward_scale={args.scale_reward}_discount_factor={args.discount_factor}_tau={args.soft_update_tau}"
 logdir += f"_corrected_policy_loss_samples={args.sample_batch_size}_Adam_hidden_dim={hidden_dim}"
-logdir += f"_td3={args.td3_update_interval}_GAAF_relu_lr=0.01_novalbias_weight_decay={args.weight_decay}"
-logdir += f"_updates={args.updates_per_step}_action_penalty_val_target_clip"
+logdir += f"_td3={args.td3_update_interval}_relu_lr=0.01_novalbias_weight_decay={args.weight_decay}"
+logdir += f"_updates={args.updates_per_step}"
 
 os.makedirs(logdir, exist_ok=True)
 writer = SummaryWriter(log_dir=logdir)

@@ -18,7 +18,7 @@ class LinearValueNetwork(LinearNetwork):
         layers_size = [state_dim]
         layers_size.extend(hidden_dim)
         layers_size.append(1)
-        super().__init__(layers_size, final_layer_function=no_activation, activation_function=gaaf_relu,
+        super().__init__(layers_size, final_layer_function=no_activation, activation_function=torchfunc.relu,
                          is_layer_norm=is_layer_norm, bias=False)
 
     def forward(self, state):
@@ -31,7 +31,7 @@ class LinearQNetwork(LinearNetwork):
         layers_size = [state_dim + action_dim]
         layers_size.extend(hidden_dim)
         layers_size.append(1)
-        super().__init__(layers_size, final_layer_function=no_activation, activation_function=gaaf_relu,
+        super().__init__(layers_size, final_layer_function=no_activation, activation_function=torchfunc.relu,
                          is_layer_norm=is_layer_norm, bias=False)
 
     def forward(self, state_action):
