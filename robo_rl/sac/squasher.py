@@ -21,6 +21,22 @@ class TanhSquasher(Squasher):
         return 1 - torch.tanh(x)**2
 
 
+class GAAFTanhSquasher(Squasher):
+
+    def squash(self, x):
+        k = 10000
+        g = (x * k - torch.floor(x * k) - 0.5) / k
+        # if x>0:
+        #     s = torch.exp(-x)
+        # else:
+        #     s = torch.exp(x)
+        y = torch.tanh(x) + g
+        return y
+
+    def derivative(self, x):
+        return 1 - torch.tanh(x)**2 + 1
+
+
 class SigmoidSquasher(Squasher):
 
     def squash(self, x):

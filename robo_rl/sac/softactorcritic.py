@@ -52,8 +52,8 @@ class SAC:
 
     def policy_update(self, batch, update_number):
         mse_loss = nn.MSELoss()
-        target_clip_min = -self.scale_reward/(1-self.discount_factor)
-        target_clip_max = 0
+        # target_clip_min = -self.scale_reward/(1-self.discount_factor)
+        # target_clip_max = 0
 
         """batch is a dict from replay buffer"""
         state_batch = torch.stack(batch['state']).detach()
@@ -67,7 +67,7 @@ class SAC:
 
         # Q^ = scaled reward + discount_factor * exp_target_value(st+1)
         q_hat_buffer = self.scale_reward * reward_batch + (1 - done_batch) * self.discount_factor * target_value
-        q_hat_buffer = torch.clamp(q_hat_buffer, min=target_clip_min, max=target_clip_max)
+        # q_hat_buffer = torch.clamp(q_hat_buffer, min=target_clip_min, max=target_clip_max)
 
         # Q values for state and action taken from given batch (sampled from replay buffer)
         q1_buffer = self.critics[0](torch.cat([state_batch, action_batch], 1))
@@ -92,7 +92,7 @@ class SAC:
         v_target = Eat~pi (Qmin (st,at) - logpi
         """
         v_target = min_q_value - log_prob
-        v_target = torch.clamp(v_target, min=target_clip_min, max=target_clip_max)
+        # v_target = torch.clamp(v_target, min=target_clip_min, max=target_clip_max)
         value_loss = 0.5 * mse_loss(value, v_target.detach())
 
         # policy loss
@@ -100,7 +100,7 @@ class SAC:
             # reparameterization trick.
             # zero grad on critic will clear there policy loss grads
             action_penalty = (policy_action**2).mean()
-            policy_loss = (log_prob - min_q_value).mean() + action_penalty
+            policy_loss = (log_prob - min_q_value).mean() #+ action_penalty
 
         # clip_val = 0.01
         self.critic1_optimizer.zero_grad()
@@ -134,6 +134,19 @@ class SAC:
         else:
             if self.deterministic is False:
                 soft_update(original=self.value, target=self.value_target, t=self.soft_update_tau)
+
+        self.writer.add_scalar("Value mean", value.mean(), global_step=update_number)
+        self.writer.add_scalar("Value target next state mean", target_value.mean(), global_step=update_number)
+        self.writer.add_scalar("Q hat mean", q_hat_buffer.mean(), global_step=update_number)
+        self.writer.add_scalar("Q1 buffer mean", q1_buffer.mean(), global_step=update_number)
+        self.writer.add_scalar("Q2 buffer mean", q2_buffer.mean(), global_step=update_number)
+        self.writer.add_scalar("Log prob mean", log_prob.mean(), global_step=update_number)
+        self.writer.add_scalar("Q1 current mean", q1_current_policy.mean(), global_step=update_number)
+        self.writer.add_scalar("Q2 current mean", q2_current_policy.mean(), global_step=update_number)
+        self.writer.add_scalar("Min Q current mean", min_q_value.mean(), global_step=update_number)
+        self.writer.add_scalar("Target value for loss mean", v_target.mean(), global_step=update_number)
+        # self.writer.add_scalar("action penalty mean", action_penalty.mean(), global_step=update_number)
+        self.writer.add_scalar("action mean", policy_action.mean(), global_step=update_number)
 
         self.writer.add_scalar("Value loss", value_loss, global_step=update_number)
         self.writer.add_scalar("Q Value 1 loss", q1_val_loss, global_step=update_number)
