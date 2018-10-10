@@ -12,3 +12,4 @@
 10. [Improved Training of Wasserstein GANs](https://arxiv.org/pdf/1704.00028.pdf)
 11. [Skills from Videos](https://xbpeng.github.io/projects/SFV/2018_TOG_SFV.pdf)
 12. [Deep Unsupervised Clustering with Gaussian Mixture Variational Autoencoders](https://arxiv.org/pdf/1611.02648.pdf)
+13. [GAUSSIAN MIXTURE VAE: LESSONS IN VARIATIONAL INFERENCE, GENERATIVE MODELS, AND DEEP NETS](http://ruishu.io/2016/12/25/gmvae/)
