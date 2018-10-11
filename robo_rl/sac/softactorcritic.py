@@ -41,14 +41,16 @@ class SAC:
         self.policy = GaussianPolicy(state_dim=self.state_dim, action_dim=self.action_dim, hidden_dim=self.hidden_dim)
         self.critics = n_critics(state_dim=self.state_dim, action_dim=self.action_dim, hidden_dim=self.hidden_dim,
                                  num_q=2)
-        nn_utils.xavier_initialisation(self.value, self.policy, self.critics)
+        self.value.apply(nn_utils.xavier_initialisation)
+        self.critics.apply(nn_utils.xavier_initialisation)
+        self.policy.apply(nn_utils.xavier_initialisation)
 
         self.value_optimizer = optimizer(self.value.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         self.policy_optimizer = optimizer(self.policy.parameters(), lr=self.lr, weight_decay=self.weight_decay)
         self.critic1_optimizer = optimizer(self.critics[0].parameters(), lr=self.lr, weight_decay=self.weight_decay)
         self.critic2_optimizer = optimizer(self.critics[1].parameters(), lr=self.lr, weight_decay=self.weight_decay)
 
-        hard_update(target=self.value, original=self.value_target)
+        hard_update(target=self.value_target, original=self.value)
 
     def policy_update(self, batch, update_number):
         mse_loss = nn.MSELoss()

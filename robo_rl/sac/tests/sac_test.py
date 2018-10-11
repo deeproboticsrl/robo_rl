@@ -14,6 +14,8 @@ from torch.optim import Adam, SGD
 
 env = gym.make("FetchReach-v1")
 
+torch.set_default_tensor_type(torch.DoubleTensor)
+
 # Set seeds everywhere
 seed = 0
 env.seed(seed)

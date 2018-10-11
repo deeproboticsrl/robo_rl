@@ -14,7 +14,7 @@ torch.manual_seed(0)
 linear_network = LinearNetwork(layers_size=[1, 5, 5, 2],final_layer_function=torch.sigmoid,
                                activation_function=torchfunc.relu)
 
-xavier_initialisation(linear_network)
+linear_network.apply(xavier_initialisation)
 
 mod_value = 4
 lr = 0.01

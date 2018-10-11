@@ -5,10 +5,10 @@ import numpy as np
 import torch
 from robo_rl.common import Buffer
 from robo_rl.common.utils import gym_torchify, print_heading
-from robo_rl.sac import SAC, TanhSquasher, GAAFTanhSquasher
+from robo_rl.sac import SAC, TanhSquasher
 from robo_rl.sac import get_sac_parser
 from tensorboardX import SummaryWriter
-from torch.optim import Adam, SGD
+from torch.optim import Adam
 
 parser = get_sac_parser()
 parser.add_argument('--env_name', default="FetchReach-v1", help="Should be GoalEnv")
@@ -23,10 +23,10 @@ np.random.seed(args.env_seed)
 action_dim = env.action_space.shape[0]
 state_dim = env.observation_space.spaces["observation"].shape[0]
 goal_dim = env.observation_space.spaces["achieved_goal"].shape[0]
-hidden_dim = [args.hidden_dim]*2
+hidden_dim = [args.hidden_dim] * 4
 
 unbiased = False
-rewarding = False
+rewarding = True
 
 if unbiased:
     logdir = "./tensorboard_log/unbiased_her"
@@ -40,11 +40,12 @@ if rewarding:
 else:
     logdir += "_unrewarding"
 
+deterministic_policy = False
 
 logdir += f"reward_scale={args.scale_reward}_discount_factor={args.discount_factor}_tau={args.soft_update_tau}"
-logdir += f"_corrected_policy_loss_samples={args.sample_batch_size}_Adam_hidden_dim={hidden_dim}"
-logdir += f"_td3={args.td3_update_interval}_relu_lr=0.01_novalbias_weight_decay={args.weight_decay}"
-logdir += f"_updates={args.updates_per_step}"
+logdir += f"samples={args.sample_batch_size}_Adam_hidden_dim={hidden_dim}"
+logdir += f"_td3={args.td3_update_interval}_relu_lr={args.lr}_novalbias_weight_decay={args.weight_decay}"
+logdir += f"_updates={args.updates_per_step}_deterministic={deterministic_policy}"
 
 os.makedirs(logdir, exist_ok=True)
 writer = SummaryWriter(log_dir=logdir)
@@ -52,10 +53,10 @@ writer = SummaryWriter(log_dir=logdir)
 squasher = TanhSquasher()
 
 sac = SAC(action_dim=action_dim, state_dim=state_dim + goal_dim, hidden_dim=hidden_dim,
-          discount_factor=args.discount_factor,optimizer=Adam,
+          discount_factor=args.discount_factor, optimizer=Adam,
           writer=writer, scale_reward=args.scale_reward, reparam=args.reparam, deterministic=args.deterministic,
           target_update_interval=args.target_update_interval, lr=args.lr, soft_update_tau=args.soft_update_tau,
-          td3_update_interval=args.td3_update_interval, squasher=squasher,weight_decay=args.weight_decay)
+          td3_update_interval=args.td3_update_interval, squasher=squasher, weight_decay=args.weight_decay)
 
 buffer = Buffer(capacity=args.buffer_capacity)
 rewards = []
@@ -77,7 +78,7 @@ def ld_to_dl(batch_list_of_dicts):
 test_interval = 20
 num_tests = 10
 
-for cur_episode in range(1, args.num_episodes+1):
+for cur_episode in range(1, args.num_episodes + 1):
     print(f"Starting episode {cur_episode}")
 
     reset_obs = env.reset()
@@ -89,9 +90,11 @@ for cur_episode in range(1, args.num_episodes+1):
 
     while not done and timestep <= args.max_time_steps:
         episode_reward = 0
-        action, log_prob = sac.get_action(torch.cat([state, desired_goal]), evaluate=True)
+        action, log_prob = sac.get_action(torch.cat([state, desired_goal]), evaluate=True,
+                                          deterministic=deterministic_policy)
         action = action.detach()
         observation, reward, done, _ = gym_torchify(env.step(action.numpy()), is_goal_env=True)
+        reward = reward + 1
         episode_buffer.append(dict(state=state, next_state=observation["observation"], action=action,
                                    done=done, achieved_goal=observation["achieved_goal"], log_prob=log_prob))
         sample = dict(state=torch.cat([state, desired_goal]), action=action, reward=reward,
@@ -102,15 +105,15 @@ for cur_episode in range(1, args.num_episodes+1):
         state = observation["observation"]
         timestep += 1
 
-    sac.writer.add_scalar("Policy linear layer 1 weight 0",sac.policy.linear_layers[0].weight[0][0],cur_episode)
+    sac.writer.add_scalar("Policy linear layer 1 weight 0", sac.policy.linear_layers[0].weight[0][0], cur_episode)
     for name, param in sac.policy.named_parameters():
-        sac.writer.add_histogram("policy_"+name, param.clone().cpu().data.numpy(), cur_episode)
+        sac.writer.add_histogram("policy_" + name, param.clone().cpu().data.numpy(), cur_episode)
     for name, param in sac.value.named_parameters():
-        sac.writer.add_histogram("value_"+name, param.clone().cpu().data.numpy(), cur_episode)
+        sac.writer.add_histogram("value_" + name, param.clone().cpu().data.numpy(), cur_episode)
     for name, param in sac.critics[0].named_parameters():
-        sac.writer.add_histogram("critic1_"+name, param.clone().cpu().data.numpy(), cur_episode)
+        sac.writer.add_histogram("critic1_" + name, param.clone().cpu().data.numpy(), cur_episode)
     for name, param in sac.critics[1].named_parameters():
-        sac.writer.add_histogram("critic2_"+name, param.clone().cpu().data.numpy(), cur_episode)
+        sac.writer.add_histogram("critic2_" + name, param.clone().cpu().data.numpy(), cur_episode)
 
     # add hindsight transitions
     final_goal = observation["achieved_goal"]
@@ -120,7 +123,7 @@ for cur_episode in range(1, args.num_episodes+1):
         state = torch.cat([transition["state"], final_goal])
         log_prob_final_goal = sac.policy.compute_log_prob_action(state, sac.squasher, transition["action"]).detach()
 
-        reward = env.compute_reward(achieved_goal=transition["achieved_goal"], desired_goal=final_goal, info=None)
+        reward = env.compute_reward(achieved_goal=transition["achieved_goal"], desired_goal=final_goal, info=None) + 1
         unbiased_reward = torch.Tensor(reward * np.exp(log_prob_final_goal) / np.exp(transition["log_prob"].detach()))
 
         if unbiased:
@@ -172,7 +175,7 @@ for cur_episode in range(1, args.num_episodes+1):
             print(f"\nNew best model with accuracy {max_accuracy}")
             sac.save_model(env_name=args.env_name, info='best')
 
-        sac.writer.add_scalar("Accuracy ", accuracy, cur_episode/test_interval)
+        sac.writer.add_scalar("Accuracy ", accuracy, cur_episode / test_interval)
 
     if cur_episode % args.save_iter == 0:
         print(f"\nSaving periodically - iteration {cur_episode}")
