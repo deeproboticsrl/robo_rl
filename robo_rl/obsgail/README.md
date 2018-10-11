@@ -16,3 +16,4 @@
 14. [Alternative Priors for Deep Generative Models](https://www.ics.uci.edu/~enalisni/nalisnick_openAI_talk.pdf)
 15. [VAE with a VampPrior](https://arxiv.org/pdf/1705.07120.pdf)
 16. [Universal Lipschitz Functions](https://openreview.net/pdf?id=ryxY73AcK7)
+17. [GO GRADIENT FOR EXPECTATION-BASED OBJECTIVES](https://openreview.net/pdf?id=ryf6Fs09YX)
