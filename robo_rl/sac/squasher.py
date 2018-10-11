@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+
 import torch
 
 
@@ -8,7 +9,11 @@ class Squasher(ABC):
     def squash(self, x):
         pass
 
+    @abstractmethod
     def derivative(self, x):
+        pass
+
+    def inverse(self, x):
         pass
 
 
@@ -18,7 +23,10 @@ class TanhSquasher(Squasher):
         return torch.tanh(x)
 
     def derivative(self, x):
-        return 1 - torch.tanh(x)**2
+        return 1 - torch.tanh(x) ** 2
+
+    def inverse(self, x):
+        return 0.5 * (torch.log(1 + x) / (1 - x))
 
 
 class GAAFTanhSquasher(Squasher):
@@ -34,7 +42,7 @@ class GAAFTanhSquasher(Squasher):
         return y
 
     def derivative(self, x):
-        return 1 - torch.tanh(x)**2 + 1
+        return 1 - torch.tanh(x) ** 2 + 1
 
 
 class SigmoidSquasher(Squasher):
@@ -43,7 +51,7 @@ class SigmoidSquasher(Squasher):
         return torch.sigmoid(x)
 
     def derivative(self, x):
-        return torch.sigmoid(x)*(1 - torch.sigmoid(x))
+        return torch.sigmoid(x) * (1 - torch.sigmoid(x))
 
 
 class NoSquasher(Squasher):
@@ -54,3 +62,5 @@ class NoSquasher(Squasher):
     def derivative(self, x):
         return torch.Tensor([1])
 
+    def inverse(self, x):
+        return x

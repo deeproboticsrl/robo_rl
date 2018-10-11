@@ -3,6 +3,7 @@ import torch.nn.functional as torchfunc
 from robo_rl.common.networks import LinearGaussianNetwork
 from robo_rl.common.utils import no_activation
 from torch.distributions import Normal
+import numpy as np
 
 
 def gaaf_relu(x):
@@ -56,9 +57,9 @@ class GaussianPolicy(LinearGaussianNetwork):
             return action
 
         if deterministic:
-            log_prob = torch.Tensor([0])
+            log_prob = torch.Tensor([np.inf])
         else:
-            log_prob = normal.log_prob(z) + torch.log(squasher.derivative(z) + epsilon)
+            log_prob = normal.log_prob(z) - torch.log(squasher.derivative(z) + epsilon)
 
             # If tensor is 5*4, then the row sum wil be 5*1, corresponding to batch size of 5
             log_prob = log_prob.sum(-1, keepdim=True)
@@ -77,7 +78,8 @@ class GaussianPolicy(LinearGaussianNetwork):
 
         normal = Normal(mean, std)
 
-        log_prob = normal.log_prob(action) - torch.log(squasher.derivative(action + epsilon))
+        z = squasher.inverse(action)
+        log_prob = normal.log_prob(z) - torch.log(squasher.derivative(z) + epsilon)
 
         # If tensor is 5*4, then the row sum wil be 5*1, corresponding to batch size of 5
         log_prob = log_prob.sum(-1, keepdim=True)

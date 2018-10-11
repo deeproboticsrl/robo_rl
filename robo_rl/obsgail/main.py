@@ -82,7 +82,7 @@ discriminator = LinearDiscriminator(input_dim=discriminator_input_dim, hidden_di
 obsgail = ObsGAIL(expert_buffer=expert_buffer, discriminator=discriminator, off_policy_algo=sac)
 
 # TODO get from argparse
-obsgail.train(num_iterations=,learning_rate=,learning_rate_decay=,learning_rate_decay_training_steps=)
+# obsgail.train(num_iterations=,learning_rate=,learning_rate_decay=,learning_rate_decay_training_steps=)
 
 # TODO Gradient clipping in actor net
 
