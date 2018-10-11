@@ -5,4 +5,7 @@
 4. SAC + unbiased HER
 - [x] SAC + TD3
 
-[Reading for change of variable technique used for squashing](https://www.stat.washington.edu/~nehemyl/files/UW_MATH-STAT395_functions-random-variables.pdf)
+5. [Reading for change of variable technique used for squashing](https://www.stat.washington.edu/~nehemyl/files/UW_MATH-    STAT395_functions-random-variables.pdf)
+6. [Smoothed Action Value Functions for Learning Gaussian Policies](https://arxiv.org/pdf/1803.02348.pdf) 
+
+
