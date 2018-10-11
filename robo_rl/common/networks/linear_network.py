@@ -71,8 +71,8 @@ class LinearGaussianNetwork(LinearNetwork):
         """
         super().__init__(layers_size[:-1], final_layer_function, activation_function, is_layer_norm,
                          is_final_layer_norm=True)
-        self.mean_layer = nn.Linear(layers_size[-2], layers_size[-1], bias=False)
-        self.log_std_layer = nn.Linear(layers_size[-2], layers_size[-1], bias=False)
+        self.mean_layer = nn.Linear(layers_size[-2], layers_size[-1])
+        self.log_std_layer = nn.Linear(layers_size[-2], layers_size[-1])
 
     def forward(self, x):
         x = super().forward(x)
