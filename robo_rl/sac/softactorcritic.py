@@ -20,7 +20,9 @@ class SAC:
     def __init__(self, action_dim, state_dim, hidden_dim, writer, squasher, optimizer, discount_factor=0.99,
                  scale_reward=3,
                  reparam=True, target_update_interval=1, lr=3e-4, soft_update_tau=0.005,
-                 td3_update_interval=100, deterministic=False, weight_decay=0.001):
+                 td3_update_interval=100, deterministic=False, weight_decay=0.001,
+                 grad_clip=False, loss_clip=False, clip_val_grad=0.01, clip_val_loss=100,
+                 log_std_min=-20, log_std_max=-2):
         self.writer = writer
         self.deterministic = deterministic
         self.squasher = squasher
@@ -35,10 +37,17 @@ class SAC:
         self.soft_update_tau = soft_update_tau
         self.td3_update_interval = td3_update_interval
         self.weight_decay = weight_decay
+        self.grad_clip = grad_clip
+        self.loss_clip = loss_clip
+        self.clip_val_grad = clip_val_grad
+        self.clip_val_loss = clip_val_loss
+        self.log_std_min = log_std_min
+        self.log_std_max = log_std_max
 
         self.value = LinearValueNetwork(state_dim=self.state_dim, hidden_dim=self.hidden_dim)
         self.value_target = LinearValueNetwork(state_dim=self.state_dim, hidden_dim=self.hidden_dim)
-        self.policy = GaussianPolicy(state_dim=self.state_dim, action_dim=self.action_dim, hidden_dim=self.hidden_dim)
+        self.policy = GaussianPolicy(state_dim=self.state_dim, action_dim=self.action_dim, hidden_dim=self.hidden_dim,
+                                     log_std_min=self.log_std_min, log_std_max=self.log_std_max)
         self.critics = n_critics(state_dim=self.state_dim, action_dim=self.action_dim, hidden_dim=self.hidden_dim,
                                  num_q=2)
         self.value.apply(nn_utils.xavier_initialisation)
@@ -101,38 +110,49 @@ class SAC:
         if self.reparam:
             # reparameterization trick.
             # zero grad on critic will clear there policy loss grads
-            action_penalty = (policy_action**2).mean()
-            policy_loss = (log_prob - min_q_value).mean() #+ action_penalty
+            action_penalty = (policy_action ** 2).mean()
+            policy_loss = (log_prob - min_q_value).mean() + action_penalty
 
-        # clip_val = 0.01
         self.critic1_optimizer.zero_grad()
+        if self.loss_clip:
+            q1_val_loss = torch.clamp(q1_val_loss, min=-self.clip_val_loss, max=self.clip_val_loss)
         q1_val_loss.backward()
-        # for k, v in self.critics[0].named_parameters():
-        #     torch.clamp(v.grad, min=-clip_val, max=clip_val)
+        if self.grad_clip:
+            for k, v in self.critics[0].named_parameters():
+                v.grad = torch.clamp(v.grad, min=-self.clip_val_grad, max=self.clip_val_grad)
         self.critic1_optimizer.step()
 
         self.critic2_optimizer.zero_grad()
+        if self.loss_clip:
+            q2_val_loss = torch.clamp(q2_val_loss, min=-self.clip_val_loss, max=self.clip_val_loss)
         q2_val_loss.backward()
-        # for k, v in self.critics[1].named_parameters():
-        #     torch.clamp(v.grad, min=-clip_val, max=clip_val)
+        if self.grad_clip:
+            for k, v in self.critics[1].named_parameters():
+                v.grad = torch.clamp(v.grad, min=-self.clip_val_grad, max=self.clip_val_grad)
         self.critic2_optimizer.step()
 
         self.value_optimizer.zero_grad()
+        if self.loss_clip:
+            value_loss = torch.clamp(value_loss, min=-self.clip_val_loss, max=self.clip_val_loss)
         value_loss.backward()
-        # for k, v in self.value.named_parameters():
-        #     torch.clamp(v.grad, min=-clip_val, max=clip_val)
+        if self.grad_clip:
+            for k, v in self.value.named_parameters():
+                v.grad = torch.clamp(v.grad, min=-self.clip_val_grad, max=self.clip_val_grad)
         self.value_optimizer.step()
 
         if update_number % self.td3_update_interval == 0:
             self.policy_optimizer.zero_grad()
+            if self.loss_clip:
+                policy_loss = torch.clamp(policy_loss, min=-self.clip_val_loss, max=self.clip_val_loss)
             policy_loss.backward()
-            # for k, v in self.policy.named_parameters():
-            #     torch.clamp(v.grad, min=-clip_val, max=clip_val)
+            if self.grad_clip:
+                for k, v in self.policy.named_parameters():
+                    v.grad = torch.clamp(v.grad, min=-self.clip_val_grad, max=self.clip_val_grad)
             self.policy_optimizer.step()
 
         if self.target_update_interval > 1:
             if update_number % self.target_update_interval == 0 and self.deterministic is False:
-                hard_update(self.value, self.value_target)
+                hard_update(original=self.value, target=self.value_target)
         else:
             if self.deterministic is False:
                 soft_update(original=self.value, target=self.value_target, t=self.soft_update_tau)
@@ -147,7 +167,7 @@ class SAC:
         self.writer.add_scalar("Q2 current mean", q2_current_policy.mean(), global_step=update_number)
         self.writer.add_scalar("Min Q current mean", min_q_value.mean(), global_step=update_number)
         self.writer.add_scalar("Target value for loss mean", v_target.mean(), global_step=update_number)
-        # self.writer.add_scalar("action penalty mean", action_penalty.mean(), global_step=update_number)
+        self.writer.add_scalar("action penalty mean", action_penalty.mean(), global_step=update_number)
         self.writer.add_scalar("action mean", policy_action.mean(), global_step=update_number)
 
         self.writer.add_scalar("Value loss", value_loss, global_step=update_number)
@@ -173,7 +193,7 @@ class SAC:
         torch.save(self.critics.state_dict(), critic_path + f"critics_{info}.pt")
         utils.heading_decorator(bottom=True, print_req=True)
 
-    def load_model(self, actor_path, critic_path, value_path):
+    def load_model(self, actor_path=None, critic_path=None, value_path=None):
         utils.print_heading(
             "Loading models from paths: \n actor:{} \n critic:{} \n value:{}".format(actor_path, critic_path,
                                                                                      value_path))

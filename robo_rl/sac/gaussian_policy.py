@@ -18,7 +18,7 @@ def gaaf_relu(x):
 
 class GaussianPolicy(LinearGaussianNetwork):
 
-    def __init__(self, state_dim, action_dim, hidden_dim, is_layer_norm=True, log_std_min=-10, log_std_max=2):
+    def __init__(self, state_dim, action_dim, hidden_dim, is_layer_norm=True, log_std_min=-20, log_std_max=-2):
 
         layers_size = [state_dim]
         layers_size.extend(hidden_dim)

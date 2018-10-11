@@ -23,9 +23,9 @@ np.random.seed(args.env_seed)
 action_dim = env.action_space.shape[0]
 state_dim = env.observation_space.spaces["observation"].shape[0]
 goal_dim = env.observation_space.spaces["achieved_goal"].shape[0]
-hidden_dim = [args.hidden_dim] * 4
+hidden_dim = [args.hidden_dim] * 2
 
-unbiased = False
+unbiased = True
 rewarding = True
 
 if unbiased:
@@ -41,11 +41,19 @@ else:
     logdir += "_unrewarding"
 
 deterministic_policy = False
+deterministic_eval = True
 
-logdir += f"reward_scale={args.scale_reward}_discount_factor={args.discount_factor}_tau={args.soft_update_tau}"
-logdir += f"samples={args.sample_batch_size}_Adam_hidden_dim={hidden_dim}"
-logdir += f"_td3={args.td3_update_interval}_relu_lr={args.lr}_novalbias_weight_decay={args.weight_decay}"
-logdir += f"_updates={args.updates_per_step}_deterministic={deterministic_policy}"
+if args.grad_clip:
+    logdir += f"_grad_clip_{args.clip_val_grad}"
+if args.loss_clip:
+    logdir += f"_loss_clip_{args.clip_val_loss}"
+if deterministic_eval:
+    logdir += f"_deterministicTEST"
+logdir += f"_reward_scale={args.scale_reward}_discount_factor={args.discount_factor}_tau={args.soft_update_tau}"
+logdir += f"_samples={args.sample_batch_size}_Adam_hidden={hidden_dim}"
+logdir += f"_td3={args.td3_update_interval}_lr={args.lr}_weight_decay={args.weight_decay}"
+logdir += f"_updates={args.updates_per_step}_num_episodes={args.num_episodes}"
+logdir += f"_log_std_min={args.log_std_min}_max={args.log_std_max}_"
 
 os.makedirs(logdir, exist_ok=True)
 writer = SummaryWriter(log_dir=logdir)
@@ -56,7 +64,9 @@ sac = SAC(action_dim=action_dim, state_dim=state_dim + goal_dim, hidden_dim=hidd
           discount_factor=args.discount_factor, optimizer=Adam,
           writer=writer, scale_reward=args.scale_reward, reparam=args.reparam, deterministic=args.deterministic,
           target_update_interval=args.target_update_interval, lr=args.lr, soft_update_tau=args.soft_update_tau,
-          td3_update_interval=args.td3_update_interval, squasher=squasher, weight_decay=args.weight_decay)
+          td3_update_interval=args.td3_update_interval, squasher=squasher, weight_decay=args.weight_decay,
+          grad_clip=args.grad_clip, loss_clip=args.loss_clip, clip_val_grad=args.clip_val_grad,
+          clip_val_loss=args.clip_val_loss, log_std_min=args.log_std_min, log_std_max=args.log_std_max)
 
 buffer = Buffer(capacity=args.buffer_capacity)
 rewards = []
@@ -123,7 +133,8 @@ for cur_episode in range(1, args.num_episodes + 1):
         state = torch.cat([transition["state"], final_goal])
         log_prob_final_goal = sac.policy.compute_log_prob_action(state, sac.squasher, transition["action"]).detach()
 
-        reward = env.compute_reward(achieved_goal=transition["achieved_goal"], desired_goal=final_goal, info=None) + 1
+        reward = env.compute_reward(achieved_goal=transition["achieved_goal"], desired_goal=final_goal, info=None)
+        reward = reward + 1
         unbiased_reward = torch.Tensor(reward * np.exp(log_prob_final_goal) / np.exp(transition["log_prob"].detach()))
 
         if unbiased:
@@ -157,7 +168,7 @@ for cur_episode in range(1, args.num_episodes + 1):
 
             success = False
             while not done and timestep <= args.max_time_steps:
-                action = sac.get_action(torch.cat([state, desired_goal]), deterministic=True).detach()
+                action = sac.get_action(torch.cat([state, desired_goal]), deterministic=deterministic_eval).detach()
                 observation, reward, done, info = gym_torchify(env.step(action.numpy()), is_goal_env=True)
                 state = observation["observation"]
                 timestep += 1
