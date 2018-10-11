@@ -14,3 +14,4 @@
 12. [Deep Unsupervised Clustering with Gaussian Mixture Variational Autoencoders](https://arxiv.org/pdf/1611.02648.pdf)
 13. [GAUSSIAN MIXTURE VAE: LESSONS IN VARIATIONAL INFERENCE, GENERATIVE MODELS, AND DEEP NETS](http://ruishu.io/2016/12/25/gmvae/)
 14. [Alternative Priors for Deep Generative Models](https://www.ics.uci.edu/~enalisni/nalisnick_openAI_talk.pdf)
+15. [VAE with a VampPrior](https://arxiv.org/pdf/1705.07120.pdf)
