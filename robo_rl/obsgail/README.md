@@ -18,3 +18,4 @@
 16. [Universal Lipschitz Functions](https://openreview.net/pdf?id=ryxY73AcK7)
 17. [GO GRADIENT FOR EXPECTATION-BASED OBJECTIVES](https://openreview.net/pdf?id=ryf6Fs09YX)
 18. [IB-GAN: DISENTANGLED REPRESENTATION LEARNING WITH INFORMATION BOTTLENECK GAN](https://openreview.net/pdf?id=ryljV2A5KX)
+19. [Generative Adversarial Imitation from Observation](https://arxiv.org/pdf/1807.06158.pdf)
