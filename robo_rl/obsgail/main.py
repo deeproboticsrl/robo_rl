@@ -10,9 +10,9 @@ from robo_rl.obsgail import ExpertBuffer, ObsGAIL
 from robo_rl.sac import SAC, SigmoidSquasher
 from tensorboardX import SummaryWriter
 
-parser = argparse.ArgumentParser(description='PyTorch on fire')
+parser = argparse.ArgumentParser()
 parser.add_argument('--env_name', default="Reacher-v2")
-parser.add_argument('--env_seed', type=int, default=1105, help="environment seed")
+parser.add_argument('--env_seed', type=int, default=0, help="environment seed")
 parser.add_argument('--soft_update_tau', type=float, default=0.005, help="target smoothening coefficient tau")
 parser.add_argument('--lr', type=float, default=0.0003, help="learning rate")
 parser.add_argument('--discount_factor', type=float, default=0.99, help='discount factor gamma')
@@ -34,12 +34,8 @@ parser.add_argument('--updates_per_step', type=int, default=1, help='updates per
 parser.add_argument('--save_iter', type=int, default=100, help='save model and buffer '
                                                                'after certain number of iteration')
 args = parser.parse_args()
-if args.env_name == "ProstheticsEnv":
-    env = ProstheticsEnv()
+env = ProstheticsEnv()
 
-else:
-    # Need to normalize the action_space
-    env = gym.make(args.env_name)
 
 env.seed(args.env_seed)
 torch.manual_seed(args.env_seed)
@@ -79,7 +75,7 @@ discriminator_hidden_dim = [2, 3]
 # TODO use VAE
 discriminator = LinearDiscriminator(input_dim=discriminator_input_dim, hidden_dim=discriminator_hidden_dim)
 
-obsgail = ObsGAIL(expert_buffer=expert_buffer, discriminator=discriminator, off_policy_algo=sac)
+obsgail = ObsGAIL(env=env,expert_buffer=expert_buffer, discriminator=discriminator, off_policy_algo=sac)
 
 # TODO get from argparse
 # obsgail.train(num_iterations=,learning_rate=,learning_rate_decay=,learning_rate_decay_training_steps=)
