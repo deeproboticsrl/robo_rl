@@ -21,7 +21,8 @@ torch.manual_seed(args.env_seed)
 np.random.seed(args.env_seed)
 
 action_dim = env.action_space.shape[0]
-state_dim = env.observation_space.spaces["observation"].shape[0]
+# state_dim = env.observation_space.spaces["observation"].shape[0]
+state_dim = env.observation_space.spaces["achieved_goal"].shape[0]
 goal_dim = env.observation_space.spaces["achieved_goal"].shape[0]
 hidden_dim = [args.hidden_dim] * 2
 
@@ -49,7 +50,7 @@ if args.loss_clip:
     logdir += f"_loss_clip_{args.clip_val_loss}"
 if deterministic_eval:
     logdir += f"_deterministicTEST"
-logdir += f"_reward_scale={args.scale_reward}_discount_factor={args.discount_factor}_tau={args.soft_update_tau}"
+logdir += f"GOALIFIED_reward_scale={args.scale_reward}_discount_factor={args.discount_factor}_tau={args.soft_update_tau}"
 logdir += f"_samples={args.sample_batch_size}_Adam_hidden={hidden_dim}"
 logdir += f"_td3={args.td3_update_interval}_lr={args.lr}_weight_decay={args.weight_decay}"
 logdir += f"_updates={args.updates_per_step}_num_episodes={args.num_episodes}"
@@ -92,7 +93,8 @@ for cur_episode in range(1, args.num_episodes + 1):
     print(f"Starting episode {cur_episode}")
 
     reset_obs = env.reset()
-    state = torch.Tensor(reset_obs["observation"])
+    # state = torch.Tensor(reset_obs["observation"])
+    state = torch.Tensor(reset_obs["achieved_goal"])
     desired_goal = torch.Tensor(reset_obs["desired_goal"])
     done = False
     timestep = 0
@@ -105,14 +107,15 @@ for cur_episode in range(1, args.num_episodes + 1):
         action = action.detach()
         observation, reward, done, _ = gym_torchify(env.step(action.numpy()), is_goal_env=True)
         reward = reward + 1
-        episode_buffer.append(dict(state=state, next_state=observation["observation"], action=action,
+        next_state = observation["achieved_goal"]
+        episode_buffer.append(dict(state=state, next_state=observation["achieved_goal"], action=action,
                                    done=done, achieved_goal=observation["achieved_goal"], log_prob=log_prob))
         sample = dict(state=torch.cat([state, desired_goal]), action=action, reward=reward,
-                      next_state=torch.cat([observation["observation"], desired_goal]), done=done)
+                      next_state=torch.cat([next_state, desired_goal]), done=done)
         buffer.add(sample)
 
         episode_reward += reward
-        state = observation["observation"]
+        state = next_state
         timestep += 1
 
     sac.writer.add_scalar("Policy linear layer 1 weight 0", sac.policy.linear_layers[0].weight[0][0], cur_episode)
@@ -161,7 +164,7 @@ for cur_episode in range(1, args.num_episodes + 1):
         successes = []
         for i in range(num_tests):
             reset_obs = env.reset()
-            state = torch.Tensor(reset_obs["observation"])
+            state = torch.Tensor(reset_obs["achieved_goal"])
             desired_goal = torch.Tensor(reset_obs["desired_goal"])
             done = False
             timestep = 0
@@ -170,7 +173,7 @@ for cur_episode in range(1, args.num_episodes + 1):
             while not done and timestep <= args.max_time_steps:
                 action = sac.get_action(torch.cat([state, desired_goal]), deterministic=deterministic_eval).detach()
                 observation, reward, done, info = gym_torchify(env.step(action.numpy()), is_goal_env=True)
-                state = observation["observation"]
+                state = observation["achieved_goal"]
                 timestep += 1
                 if 'is_success' in info:
                     success = info['is_success']

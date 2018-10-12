@@ -8,3 +8,4 @@ events.*
 tensorboard_log/
 model/
 buffer/
+*.obs
