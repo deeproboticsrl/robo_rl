@@ -26,8 +26,8 @@ state_dim = env.observation_space.spaces["achieved_goal"].shape[0]
 goal_dim = env.observation_space.spaces["achieved_goal"].shape[0]
 hidden_dim = [args.hidden_dim] * 2
 
-unbiased = True
-rewarding = True
+unbiased = False
+rewarding = False
 
 if unbiased:
     logdir = "./tensorboard_log/unbiased_her"
@@ -50,8 +50,10 @@ if args.loss_clip:
     logdir += f"_loss_clip_{args.clip_val_loss}"
 if deterministic_eval:
     logdir += f"_deterministicTEST"
-logdir += f"GOALIFIED_reward_scale={args.scale_reward}_discount_factor={args.discount_factor}_tau={args.soft_update_tau}"
-logdir += f"_samples={args.sample_batch_size}_Adam_hidden={hidden_dim}"
+if deterministic_policy:
+    logdir += f"_deterministicpolicy_"
+logdir += f"_GOALIFIED_states_reward_scale={args.scale_reward}_tau={args.soft_update_tau}"
+logdir += f"_samples={args.sample_batch_size}_hidden={hidden_dim}_discount_factor={args.discount_factor}"
 logdir += f"_td3={args.td3_update_interval}_lr={args.lr}_weight_decay={args.weight_decay}"
 logdir += f"_updates={args.updates_per_step}_num_episodes={args.num_episodes}"
 logdir += f"_log_std_min={args.log_std_min}_max={args.log_std_max}_"
@@ -187,11 +189,11 @@ for cur_episode in range(1, args.num_episodes + 1):
             max_accuracy = accuracy
             # save current best model
             print(f"\nNew best model with accuracy {max_accuracy}")
-            sac.save_model(env_name=args.env_name, info='best')
+            sac.save_model(actor_path=logdir, env_name=args.env_name, info='best')
 
         sac.writer.add_scalar("Accuracy ", accuracy, cur_episode / test_interval)
 
     if cur_episode % args.save_iter == 0:
         print(f"\nSaving periodically - iteration {cur_episode}")
-        sac.save_model(env_name=args.env_name, info="periodic")
+        sac.save_model(actor_path=logdir, env_name=args.env_name, info="periodic")
         buffer.save_buffer(info=args.env_name)

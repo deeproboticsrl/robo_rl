@@ -18,7 +18,7 @@ def gaaf_relu(x):
 
 class GaussianPolicy(LinearGaussianNetwork):
 
-    def __init__(self, state_dim, action_dim, hidden_dim, is_layer_norm=True, log_std_min=-20, log_std_max=-2):
+    def __init__(self, state_dim, action_dim, hidden_dim, is_layer_norm=True, log_std_min=-20, log_std_max=2):
 
         layers_size = [state_dim]
         layers_size.extend(hidden_dim)
@@ -37,7 +37,7 @@ class GaussianPolicy(LinearGaussianNetwork):
 
         mean, log_std = self.forward(state)
 
-        # limit std. not too stochastic nor too deterministic
+        # limit std. neither too stochastic nor too deterministic
         log_std = torch.clamp(log_std, min=self.log_std_min, max=self.log_std_max)
         std = torch.exp(log_std)
 
@@ -57,6 +57,7 @@ class GaussianPolicy(LinearGaussianNetwork):
             return action
 
         if deterministic:
+            """pmf becomes delta function"""
             log_prob = torch.Tensor([np.inf])
         else:
             log_prob = normal.log_prob(z) - torch.log(squasher.derivative(z) + epsilon)

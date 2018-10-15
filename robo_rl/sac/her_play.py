@@ -17,7 +17,8 @@ torch.manual_seed(args.env_seed)
 np.random.seed(args.env_seed)
 
 action_dim = env.action_space.shape[0]
-state_dim = env.observation_space.spaces["observation"].shape[0]
+# state_dim = env.observation_space.spaces["observation"].shape[0]
+state_dim = env.observation_space.spaces["achieved_goal"].shape[0]
 goal_dim = env.observation_space.spaces["achieved_goal"].shape[0]
 hidden_dim = [args.hidden_dim] * 2
 
@@ -36,10 +37,12 @@ sac = SAC(action_dim=action_dim, state_dim=state_dim + goal_dim, hidden_dim=hidd
 actor_path = f"model/{args.env_name}/actor_periodic.pt"
 sac.load_model(actor_path=actor_path)
 
-detertministic_eval = False
+detertministic_eval = True
+
 for i in range(20):
     reset_obs = env.reset()
-    state = torch.Tensor(reset_obs["observation"])
+    # state = torch.Tensor(reset_obs["observation"])
+    state = torch.Tensor(reset_obs["achieved_goal"])
     desired_goal = torch.Tensor(reset_obs["desired_goal"])
     done = False
     timestep = 0
@@ -48,6 +51,8 @@ for i in range(20):
     while not done and timestep <= args.max_time_steps:
         env.render()
         action = sac.get_action(torch.cat([state, desired_goal]), deterministic=detertministic_eval).detach()
+        print(action)
         observation, reward, done, info = gym_torchify(env.step(action.numpy()), is_goal_env=True)
-        state = observation["observation"]
+        # state = observation["observation"]
+        state = observation["achieved_goal"]
         timestep += 1

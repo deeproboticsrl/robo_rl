@@ -111,7 +111,8 @@ class SAC:
             # reparameterization trick.
             # zero grad on critic will clear there policy loss grads
             action_penalty = (policy_action ** 2).mean()
-            policy_loss = (log_prob - min_q_value).mean() + action_penalty
+            policy_loss = (log_prob * (log_prob - min_q_value + value.detach())).mean()
+            # policy_loss += action_penalty
 
         self.critic1_optimizer.zero_grad()
         if self.loss_clip:
