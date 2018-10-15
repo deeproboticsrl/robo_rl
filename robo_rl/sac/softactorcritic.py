@@ -110,9 +110,11 @@ class SAC:
         if self.reparam:
             # reparameterization trick.
             # zero grad on critic will clear there policy loss grads
-            action_penalty = (policy_action ** 2).mean()
+            policy_loss = (log_prob - min_q_value).mean()
+        else:
             policy_loss = (log_prob * (log_prob - min_q_value + value.detach())).mean()
-            # policy_loss += action_penalty
+        action_penalty = (policy_action ** 2).mean()
+        # policy_loss += action_penalty
 
         self.critic1_optimizer.zero_grad()
         if self.loss_clip:
@@ -176,8 +178,11 @@ class SAC:
         self.writer.add_scalar("Q Value 2 loss", q2_val_loss, global_step=update_number)
         self.writer.add_scalar("Policy loss", policy_loss, global_step=update_number)
 
-    def save_model(self, env_name, actor_path=None, critic_path=None, value_path=None, info=1):
-
+    def save_model(self, env_name, all_nets_path=None, actor_path=None, critic_path=None, value_path=None, info=1):
+        if all_nets_path is not None:
+            actor_path = all_nets_path
+            value_path = all_nets_path
+            critic_path = all_nets_path
         if actor_path is None:
             actor_path = f'model/{env_name}/'
         os.makedirs(actor_path, exist_ok=True)

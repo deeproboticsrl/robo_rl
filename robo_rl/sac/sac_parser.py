@@ -9,16 +9,23 @@ parser.add_argument('--discount_factor', type=float, default=0.99, help='discoun
 parser.add_argument('--scale_reward', type=float, default=10000,
                     help="reward scaling humannoid_v1=20, humnanoid_rllab=10, other mujoco=5")
 parser.add_argument('--reparam', type=bool, default=True, help="True if reparameterization trick is applied")
+parser.add_argument('--rewarding', type=bool, default=False, help="Hindsight reward for each transition")
+parser.add_argument('--unbiased', type=bool, default=False, help="Apply importance sampling to hindsight transitions")
+parser.add_argument('--goal_obs', type=bool, default=True, help="Whether to use complete observations or only achieved "
+                                                                "goal part as state")
+parser.add_argument('--positive_reward', type=bool, default=True,
+                    help="Add 1 to the binary rewards {-1,0} to make them {0,1}")
+
 parser.add_argument('--deterministic', type=bool, default=False)
-parser.add_argument('--grad_clip', type=bool, default=False)
-parser.add_argument('--loss_clip', type=bool, default=False)
-parser.add_argument('--clip_val_loss', type=float, default=1000)
-parser.add_argument('--clip_val_grad', type=float, default=0.01)
+parser.add_argument('--grad_clip', type=bool, default=False, help="Whether to clip gradients in each update")
+parser.add_argument('--loss_clip', type=bool, default=False, help="Whether to clip losses in each update")
+parser.add_argument('--clip_val_loss', type=float, default=1000, help="Max value(absolute) for losses when clipping")
+parser.add_argument('--clip_val_grad', type=float, default=0.01, help="Max value(absolute) for gradients when clipping")
 parser.add_argument('--log_std_min', type=float, default=-20)
 parser.add_argument('--log_std_max', type=float, default=2)
 
 parser.add_argument('--target_update_interval', type=int, default=1,
-                    help="used in case of hard update with or without td3")
+                    help="used in case of hard update for the value function")
 parser.add_argument('--td3_update_interval', type=int, default=1,
                     help="used in case of delayed update for policy")
 
@@ -30,7 +37,49 @@ parser.add_argument('--num_episodes', type=int, default=500, help='number of epi
 parser.add_argument('--updates_per_step', type=int, default=40, help='updates per step')
 parser.add_argument('--save_iter', type=int, default=20, help='save model and buffer '
                                                               'after certain number of iteration')
+parser.add_argument('--test_interval', type=int, default=20, help="Number of episodes after which to test")
+parser.add_argument('--num_tests', type=int, default=10, help="Number of tests for evaluation")
 
 
 def get_sac_parser():
     return parser
+
+
+def get_logfile_name(args):
+    logfile = ""
+    if args.unbiased:
+        logfile += "unbiased_her"
+    else:
+        logfile += "biased_her"
+
+    if args.rewarding:
+        logfile += "_rewarding"
+    else:
+        logfile += "_unrewarding"
+
+    deterministic_policy = False
+    deterministic_eval = True
+
+    if args.reparam:
+        logfile += "_reparam"
+    if args.positive_reward:
+        logfile += "_positive_reward"
+
+    logfile += f"_reward_scale={args.scale_reward}_tau={args.soft_update_tau}"
+    logfile += f"_samples={args.sample_batch_size}_hidden={hidden_dim}_discount_factor={args.discount_factor}"
+    logfile += f"_td3={args.td3_update_interval}_lr={args.lr}_distance_threshold={args.distance_threshold}"
+    logfile += f"_updates={args.updates_per_step}_num_episodes={args.num_episodes}"
+    logfile += f"_log_std_min={args.log_std_min}_max={args.log_std_max}"
+
+    if args.goal_obs:
+        logfile += "_GOALIFIED_states"
+    if args.grad_clip:
+        logfile += f"_grad_clip_{args.clip_val_grad}"
+    if args.loss_clip:
+        logfile += f"_loss_clip_{args.clip_val_loss}"
+    if deterministic_eval:
+        logfile += "_deterministic_TEST"
+    if deterministic_policy:
+        logfile += "_deterministic_policy"
+
+    return logfile
