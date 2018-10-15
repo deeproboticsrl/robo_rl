@@ -9,3 +9,12 @@
 6. [Smoothed Action Value Functions for Learning Gaussian Policies](https://arxiv.org/pdf/1803.02348.pdf) 
 
 
+## Notes from rlkit
+
+1. bias init default to 1
+2. weight_init uniform for last layer 1e-3, and fanin_init for hidden 
+3. mean. std weight regularisation 1e-3
+4. Bigger tau 1e-2
+5. Not using 2 qs. Why?
+6. Policy loss is completely different!!
+
