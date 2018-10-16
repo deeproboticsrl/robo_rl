@@ -9,14 +9,13 @@
 7. [Soft Actor-Critic: Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor](https://arxiv.org/pdf/1801.01290.pdf)
 8. [Latent Space Policies for Hierarchical Reinforcement Learning](https://arxiv.org/pdf/1804.02808.pdf)
 9. [Phase-Functioned Neural Networks for Character Control](http://theorangeduck.com/media/uploads/other_stuff/phasefunction.pdf)
-
+10.[Variational Discriminator Bottleneck: Improving Imitation Learning, Inverse RL, and GANs by Constraining Information Flow](https://xbpeng.github.io/projects/VDB/2018_VDB.pdf)
+11. [Improved Training of Wasserstein GANs](https://arxiv.org/pdf/1704.00028.pdf) 
 ----
 
 1. [Data Augmentation Generative Adversarial Networks](https://arxiv.org/pdf/1711.04340.pdf)
-2. [Variational Discriminator Bottleneck: Improving Imitation Learning, Inverse RL, and GANs by Constraining Information Flow](https://xbpeng.github.io/projects/VDB/2018_VDB.pdf)
-3. [Improved Training of Wasserstein GANs](https://arxiv.org/pdf/1704.00028.pdf)
-11. [Skills from Videos](https://xbpeng.github.io/projects/SFV/2018_TOG_SFV.pdf)
-12. [Deep Unsupervised Clustering with Gaussian Mixture Variational Autoencoders](https://arxiv.org/pdf/1611.02648.pdf)
+2. [Skills from Videos](https://xbpeng.github.io/projects/SFV/2018_TOG_SFV.pdf)
+3. [Deep Unsupervised Clustering with Gaussian Mixture Variational Autoencoders](https://arxiv.org/pdf/1611.02648.pdf)
 13. [GAUSSIAN MIXTURE VAE: LESSONS IN VARIATIONAL INFERENCE, GENERATIVE MODELS, AND DEEP NETS](http://ruishu.io/2016/12/25/gmvae/)
 14. [Alternative Priors for Deep Generative Models](https://www.ics.uci.edu/~enalisni/nalisnick_openAI_talk.pdf)
 15. [VAE with a VampPrior](https://arxiv.org/pdf/1705.07120.pdf)
