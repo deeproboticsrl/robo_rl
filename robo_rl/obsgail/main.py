@@ -1,78 +1,62 @@
-import argparse
 import os
 
-import gym
 import numpy as np
 import torch
 from osim.env import ProstheticsEnv
-from robo_rl.common.networks import LinearDiscriminator
+from robo_rl.common import LinearDiscriminator, Buffer
 from robo_rl.obsgail import ExpertBuffer, ObsGAIL
 from robo_rl.sac import SAC, SigmoidSquasher
+from robo_rl.obsgail import get_obsgail_parser, get_logfile_name
 from tensorboardX import SummaryWriter
+from torch.optim import Adam
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--env_name', default="Reacher-v2")
-parser.add_argument('--env_seed', type=int, default=0, help="environment seed")
-parser.add_argument('--soft_update_tau', type=float, default=0.005, help="target smoothening coefficient tau")
-parser.add_argument('--lr', type=float, default=0.0003, help="learning rate")
-parser.add_argument('--discount_factor', type=float, default=0.99, help='discount factor gamma')
-parser.add_argument('--scale_reward', type=int, default=10,
-                    help="reward scaling humannoid_v1=20, humnanoid_rllab=10, other mujoco=5")
-parser.add_argument('--reparam', type=bool, default=True, help="True if reparameterization trick is applied")
-parser.add_argument('--deterministic', type=bool, default=False)
-parser.add_argument('--target_update_interval', type=int, default=1,
-                    help="used in case of hard update with or without td3")
-parser.add_argument('--td3_update_interval', type=int, default=100,
-                    help="used in case of delayed update for policy")
-
-parser.add_argument('--hidden_dim', type=int, default=256, help='no of hidden units ')
-parser.add_argument('--buffer_capacity', type=int, default=1000000, help='buffer capacity')
-parser.add_argument('--sample_batch_size', type=int, default=256, help='number of samples from replay buffer')
-parser.add_argument('--max_time_steps', type=int, default=10000, help='max number of env timesteps per episodes')
-parser.add_argument('--num_episodes', type=int, default=10000, help='number of episodes')
-parser.add_argument('--updates_per_step', type=int, default=1, help='updates per step')
-parser.add_argument('--save_iter', type=int, default=100, help='save model and buffer '
-                                                               'after certain number of iteration')
+parser = get_obsgail_parser()
 args = parser.parse_args()
 env = ProstheticsEnv()
-
 
 env.seed(args.env_seed)
 torch.manual_seed(args.env_seed)
 np.random.seed(args.env_seed)
 
-# TODO make sure state_dim action_dim works correctly for all kinds of envs.
-
 action_dim = env.action_space.shape[0]
 state_dim = env.observation_space.shape[0]
-hidden_dim = [args.hidden_dim, args.hidden_dim]
+# According to VAIL
+sac_hidden_dim = [1024, 512]
 
 logdir = "./tensorboard_log/"
+# logdir += "dummy"
+modeldir = f"./model/{args.env_name}/"
+bufferdir = f"./buffer/{args.env_name}"
+
+logfile = get_logfile_name(args)
+
 os.makedirs(logdir, exist_ok=True)
 writer = SummaryWriter(log_dir=logdir)
 
 squasher = SigmoidSquasher()
 
-sac = SAC(action_dim=action_dim, state_dim=state_dim, hidden_dim=hidden_dim, discount_factor=args.discount_factor,
-          writer=writer, scale_reward=args.scale_reward, reparam=args.reparam, deterministic=args.deterministic,
-          target_update_interval=args.target_update_interval, lr=args.lr, soft_update_tau=args.soft_update_tau,
-          td3_update_interval=args.td3_update_interval, squasher=squasher)
+sac = SAC(action_dim=action_dim, state_dim=state_dim, hidden_dim=sac_hidden_dim,
+          discount_factor=args.discount_factor, optimizer=Adam, policy_lr=args.policy_lr, critic_lr=args.critic_lr,
+          value_lr=args.value_lr, writer=writer, scale_reward=args.scale_reward, reparam=args.reparam,
+          target_update_interval=args.target_update_interval, soft_update_tau=args.soft_update_tau,
+          td3_update_interval=args.td3_update_interval, squasher=squasher, weight_decay=args.weight_decay,
+          grad_clip=args.grad_clip, loss_clip=args.loss_clip, clip_val_grad=args.clip_val_grad,
+          deterministic=args.deterministic, clip_val_loss=args.clip_val_loss, log_std_min=args.log_std_min,
+          log_std_max=args.log_std_max)
 
-# TODO use argparse
+buffer = Buffer(capacity=args.replay_buffer_capacity)
+expert_buffer = ExpertBuffer(capacity=args.expert_buffer_capacity)
 
-expert_buffer_capacity = 1000
-expert_buffer = ExpertBuffer()
 
-# TODO use proper path
-expert_file_path = "experts/"
-
+# Fill expert buffer
+expert_file_path = "./experts/sampled_experts.obs"
 expert_buffer.add_from_file(expert_file_path=expert_file_path)
 
-# TODO take from env
-discriminator_input_dim = 1
-discriminator_hidden_dim = [2, 3]
 
-# TODO use VAE
+latent_z_dim = int(state_dim/3)
+discriminator_input_dim = latent_z_dim
+discriminator_hidden_dim = [512]
+
 discriminator = LinearDiscriminator(input_dim=discriminator_input_dim, hidden_dim=discriminator_hidden_dim)
 
 obsgail = ObsGAIL(env=env,expert_buffer=expert_buffer, discriminator=discriminator, off_policy_algo=sac)

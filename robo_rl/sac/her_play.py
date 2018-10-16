@@ -18,8 +18,8 @@ env.seed(args.env_seed)
 torch.manual_seed(args.env_seed)
 np.random.seed(args.env_seed)
 
-modeldir = "./model/"
-bufferdir = "./buffer/"
+modeldir = f"./model/{args.env_name}/"
+bufferdir = f"./buffer/{args.env_name}/"
 
 logfile = get_logfile_name(args)
 
@@ -44,11 +44,11 @@ sac = SAC(action_dim=action_dim, state_dim=state_dim + goal_dim, hidden_dim=hidd
           clip_val_loss=args.clip_val_loss)
 
 # actor_path = f"model/{args.env_name}/actor_periodic.pt"
-actor_path = modeldir + logfile
+actor_path = modeldir + logfile + "/actor_periodic.pt"
 
 sac.load_model(actor_path=actor_path)
 
-detertministic_eval = True
+detertministic_eval = False
 
 successes = []
 

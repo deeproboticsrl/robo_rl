@@ -3,14 +3,16 @@ import argparse
 parser = argparse.ArgumentParser(description='Soft Actor Critic')
 parser.add_argument('--env_seed', type=int, default=1105, help="environment seed")
 parser.add_argument('--soft_update_tau', type=float, default=0.005, help="target smoothening coefficient tau")
-parser.add_argument('--lr', type=float, default=0.0003, help="learning rate")
+parser.add_argument('--policy_lr', type=float, default=0.0003, help="learning rate")
+parser.add_argument('--value_lr', type=float, default=0.0003, help="learning rate")
+parser.add_argument('--critic_lr', type=float, default=0.0003, help="learning rate")
 parser.add_argument('--weight_decay', type=float, default=0, help="regularisation constant for network weights")
 parser.add_argument('--discount_factor', type=float, default=0.99, help='discount factor gamma')
 parser.add_argument('--scale_reward', type=float, default=10000,
                     help="reward scaling humannoid_v1=20, humnanoid_rllab=10, other mujoco=5")
 parser.add_argument('--reparam', type=bool, default=True, help="True if reparameterization trick is applied")
 parser.add_argument('--rewarding', type=bool, default=False, help="Hindsight reward for each transition")
-parser.add_argument('--unbiased', type=bool, default=False, help="Apply importance sampling to hindsight transitions")
+parser.add_argument('--unbiased', type=bool, default=True, help="Apply importance sampling to hindsight transitions")
 parser.add_argument('--goal_obs', type=bool, default=True, help="Whether to use complete observations or only achieved "
                                                                 "goal part as state")
 parser.add_argument('--positive_reward', type=bool, default=True,
@@ -31,14 +33,14 @@ parser.add_argument('--td3_update_interval', type=int, default=1,
 
 parser.add_argument('--hidden_dim', type=int, default=256, help='no of hidden units ')
 parser.add_argument('--buffer_capacity', type=int, default=1000000, help='buffer capacity')
-parser.add_argument('--sample_batch_size', type=int, default=64, help='number of samples from replay buffer')
+parser.add_argument('--sample_batch_size', type=int, default=32, help='number of samples from replay buffer')
 parser.add_argument('--max_time_steps', type=int, default=10000, help='max number of env timesteps per episodes')
-parser.add_argument('--num_episodes', type=int, default=500, help='number of episodes')
+parser.add_argument('--num_episodes', type=int, default=2000, help='number of episodes')
 parser.add_argument('--updates_per_step', type=int, default=40, help='updates per step')
 parser.add_argument('--save_iter', type=int, default=20, help='save model and buffer '
                                                               'after certain number of iteration')
-parser.add_argument('--test_interval', type=int, default=20, help="Number of episodes after which to test")
-parser.add_argument('--num_tests', type=int, default=10, help="Number of tests for evaluation")
+parser.add_argument('--test_interval', type=int, default=25, help="Number of episodes after which to test")
+parser.add_argument('--num_tests', type=int, default=50, help="Number of tests for evaluation")
 
 
 def get_sac_parser():
@@ -57,19 +59,19 @@ def get_logfile_name(args):
     else:
         logfile += "_unrewarding"
 
-    deterministic_policy = False
-    deterministic_eval = True
-
     if args.reparam:
         logfile += "_reparam"
+    else:
+        logfile += "_no_reparam"
+
     if args.positive_reward:
         logfile += "_positive_reward"
 
     logfile += f"_reward_scale={args.scale_reward}_tau={args.soft_update_tau}"
-    logfile += f"_samples={args.sample_batch_size}_hidden={hidden_dim}_discount_factor={args.discount_factor}"
+    logfile += f"_samples={args.sample_batch_size}_discount_factor={args.discount_factor}"
     logfile += f"_td3={args.td3_update_interval}_lr={args.lr}_distance_threshold={args.distance_threshold}"
     logfile += f"_updates={args.updates_per_step}_num_episodes={args.num_episodes}"
-    logfile += f"_log_std_min={args.log_std_min}_max={args.log_std_max}"
+    logfile += f"_log_std_min={args.log_std_min}_max={args.log_std_max}_seed={args.env_seed}"
 
     if args.goal_obs:
         logfile += "_GOALIFIED_states"
@@ -77,9 +79,5 @@ def get_logfile_name(args):
         logfile += f"_grad_clip_{args.clip_val_grad}"
     if args.loss_clip:
         logfile += f"_loss_clip_{args.clip_val_loss}"
-    if deterministic_eval:
-        logfile += "_deterministic_TEST"
-    if deterministic_policy:
-        logfile += "_deterministic_policy"
 
     return logfile

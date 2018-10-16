@@ -1,12 +1,12 @@
-from robo_rl.common.networks.discriminator import Discriminator
+import robo_rl.common.utils.nn_utils as nn_utils
 import robo_rl.common.utils.utils as utils
 import torch
-import robo_rl.common.utils.nn_utils as nn_utils
+from robo_rl.common.networks.discriminator import LinearDiscriminator
 from torchviz import make_dot
 
-input =2
+input = 2
 hidden_sizes = [4, 3]
-discriminator = Discriminator(input=input,hidden_layer=hidden_sizes)
+discriminator = LinearDiscriminator(input_dim=input, hidden_dim=hidden_sizes)
 
 utils.print_heading("Network architecture")
 nn_utils.print_network_architecture(discriminator)
@@ -28,4 +28,3 @@ print((discriminator.linear_layers[2]).weight.grad)
 
 dot = make_dot(y)
 dot.render()
-

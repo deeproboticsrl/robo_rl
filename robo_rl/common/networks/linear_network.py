@@ -23,7 +23,7 @@ class LinearNetwork(nn.Module):
         Example If layers_size = [10,200,300,2]
         Number of inputs = 10
         Number of hidden layers = 2 with 200 nodes in 1st layer and 300 in next layer
-        Number of outputs = 3
+        Number of outputs = 2
         """
         self.final_layer_function = final_layer_function
         self.activation_function = activation_function

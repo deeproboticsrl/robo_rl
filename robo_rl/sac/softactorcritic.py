@@ -18,8 +18,8 @@ def n_critics(state_dim, action_dim, hidden_dim, num_q):
 
 class SAC:
     def __init__(self, action_dim, state_dim, hidden_dim, writer, squasher, optimizer, discount_factor=0.99,
-                 scale_reward=3,
-                 reparam=True, target_update_interval=1, lr=3e-4, soft_update_tau=0.005,
+                 scale_reward=3, policy_lr=0.0003, critic_lr=0.0003, value_lr=0.0003,
+                 reparam=True, target_update_interval=1, soft_update_tau=0.005,
                  td3_update_interval=100, deterministic=False, weight_decay=0.001,
                  grad_clip=False, loss_clip=False, clip_val_grad=0.01, clip_val_loss=100,
                  log_std_min=-20, log_std_max=-2):
@@ -33,7 +33,9 @@ class SAC:
         self.scale_reward = scale_reward
         self.reparam = reparam
         self.target_update_interval = target_update_interval
-        self.lr = lr
+        self.policy_lr = policy_lr
+        self.value_lr = value_lr
+        self.critic_lr = critic_lr
         self.soft_update_tau = soft_update_tau
         self.td3_update_interval = td3_update_interval
         self.weight_decay = weight_decay
@@ -54,10 +56,12 @@ class SAC:
         self.critics.apply(nn_utils.xavier_initialisation)
         self.policy.apply(nn_utils.xavier_initialisation)
 
-        self.value_optimizer = optimizer(self.value.parameters(), lr=self.lr, weight_decay=self.weight_decay)
-        self.policy_optimizer = optimizer(self.policy.parameters(), lr=self.lr, weight_decay=self.weight_decay)
-        self.critic1_optimizer = optimizer(self.critics[0].parameters(), lr=self.lr, weight_decay=self.weight_decay)
-        self.critic2_optimizer = optimizer(self.critics[1].parameters(), lr=self.lr, weight_decay=self.weight_decay)
+        self.value_optimizer = optimizer(self.value.parameters(), lr=self.value_lr, weight_decay=self.weight_decay)
+        self.policy_optimizer = optimizer(self.policy.parameters(), lr=self.policy_lr, weight_decay=self.weight_decay)
+        self.critic1_optimizer = optimizer(self.critics[0].parameters(), lr=self.critic_lr,
+                                           weight_decay=self.weight_decay)
+        self.critic2_optimizer = optimizer(self.critics[1].parameters(), lr=self.critic_lr,
+                                           weight_decay=self.weight_decay)
 
         hard_update(target=self.value_target, original=self.value)
 

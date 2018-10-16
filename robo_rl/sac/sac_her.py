@@ -24,8 +24,8 @@ np.random.seed(args.env_seed)
 
 logdir = "./tensorboard_log/"
 # logdir += "dummy"
-modeldir = "./model/"
-bufferdir = "./buffer/"
+modeldir = f"./model/{args.env_name}/"
+bufferdir = f"./buffer/{args.env_name}"
 
 logfile = get_logfile_name(args)
 
@@ -43,12 +43,13 @@ writer = SummaryWriter(log_dir=logdir + logfile)
 squasher = TanhSquasher()
 
 sac = SAC(action_dim=action_dim, state_dim=state_dim + goal_dim, hidden_dim=hidden_dim,
-          discount_factor=args.discount_factor, optimizer=Adam,
-          writer=writer, scale_reward=args.scale_reward, reparam=args.reparam, deterministic=args.deterministic,
-          target_update_interval=args.target_update_interval, lr=args.lr, soft_update_tau=args.soft_update_tau,
+          discount_factor=args.discount_factor, optimizer=Adam, policy_lr=args.policy_lr, critic_lr=args.critic_lr,
+          value_lr=args.value_lr, writer=writer, scale_reward=args.scale_reward, reparam=args.reparam,
+          target_update_interval=args.target_update_interval, soft_update_tau=args.soft_update_tau,
           td3_update_interval=args.td3_update_interval, squasher=squasher, weight_decay=args.weight_decay,
           grad_clip=args.grad_clip, loss_clip=args.loss_clip, clip_val_grad=args.clip_val_grad,
-          clip_val_loss=args.clip_val_loss, log_std_min=args.log_std_min, log_std_max=args.log_std_max)
+          deterministic=args.deterministic, clip_val_loss=args.clip_val_loss, log_std_min=args.log_std_min,
+          log_std_max=args.log_std_max)
 
 buffer = Buffer(capacity=args.buffer_capacity)
 rewards = []
@@ -82,7 +83,7 @@ for cur_episode in range(1, args.num_episodes + 1):
     while not done and timestep <= args.max_time_steps:
         episode_reward = 0
         action, log_prob = sac.get_action(torch.cat([state, desired_goal]), evaluate=True,
-                                          deterministic=deterministic_policy)
+                                          deterministic=args.deterministic)
         action = action.detach()
         observation, reward, done, _ = gym_torchify(env.step(action.numpy()), is_goal_env=True)
         if args.positive_reward:
@@ -162,7 +163,7 @@ for cur_episode in range(1, args.num_episodes + 1):
 
             success = False
             while not done and timestep <= args.max_time_steps:
-                action = sac.get_action(torch.cat([state, desired_goal]), deterministic=deterministic_eval).detach()
+                action = sac.get_action(torch.cat([state, desired_goal]), deterministic=True).detach()
                 observation, reward, done, info = gym_torchify(env.step(action.numpy()), is_goal_env=True)
                 if args.goal_obs:
                     state = observation["achieved_goal"]
@@ -182,11 +183,11 @@ for cur_episode in range(1, args.num_episodes + 1):
             max_accuracy = accuracy
             # save current best model
             print(f"\nNew best model with accuracy {max_accuracy}")
-            sac.save_model(all_nets_path=modeldir + logfile, env_name=args.env_name, info='best')
+            sac.save_model(all_nets_path=modeldir + logfile + "/", env_name=args.env_name, info='best')
 
         sac.writer.add_scalar("Accuracy ", accuracy, cur_episode / args.test_interval)
 
     if cur_episode % args.save_iter == 0:
         print(f"\nSaving periodically - iteration {cur_episode}")
-        sac.save_model(all_nets_path=modeldir + logfile, env_name=args.env_name, info="periodic")
-        buffer.save_buffer(path=bufferdir + logfile, info=args.env_name)
+        sac.save_model(all_nets_path=modeldir + logfile + "/", env_name=args.env_name, info="periodic")
+        buffer.save_buffer(path=bufferdir + logfile + "/", info=args.env_name)

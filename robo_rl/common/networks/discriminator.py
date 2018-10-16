@@ -1,9 +1,11 @@
+import torch
+import torch.nn.functional as torchfunc
 from robo_rl.common.networks import LinearNetwork
 
 
 class LinearDiscriminator(LinearNetwork):
 
-    def __init__(self, input_dim, hidden_dim):
+    def __init__(self, input_dim, hidden_dim, activation_function=torchfunc.relu):
         """
 
         Example If hidden_dim = [200,300]
@@ -13,7 +15,9 @@ class LinearDiscriminator(LinearNetwork):
         """
         layers_size = [input_dim]
         layers_size.extend(hidden_dim)
-        super().__init__(layers_size=layers_size)
+        layers_size.append(1)
+        super().__init__(layers_size=layers_size, is_layer_norm=False, activation_function=activation_function,
+                         final_layer_function=torch.sigmoid)
 
     def forward(self, x):
         return super().forward(x)
