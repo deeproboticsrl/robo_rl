@@ -54,9 +54,14 @@ expert_buffer.add_from_file(expert_file_path=expert_file_path)
 
 
 latent_z_dim = int(state_dim/3)
-discriminator_input_dim = latent_z_dim
+
+"""Add 1 dimension for absorbing state
+This state isn't needed in the policy
+"""
+discriminator_input_dim = latent_z_dim + 1
 discriminator_hidden_dim = [512]
 
+# TODO use PFNN
 discriminator = LinearDiscriminator(input_dim=discriminator_input_dim, hidden_dim=discriminator_hidden_dim)
 
 obsgail = ObsGAIL(env=env,expert_buffer=expert_buffer, discriminator=discriminator, off_policy_algo=sac)
