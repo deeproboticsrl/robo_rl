@@ -40,8 +40,13 @@ parser.add_argument('--expert_buffer_capacity', type=int, default=15000, help='b
 parser.add_argument('--sample_batch_size', type=int, default=32, help='number of samples from replay buffer')
 parser.add_argument('--updates_per_step', type=int, default=1, help='updates per step')
 
+parser.add_argument('--num_networks_discriminator', type=int, default=10,
+                    help='number of intervals in Phase Functional discriminator')
+parser.add_argument('--information_constraint', type=float, default=0.5, help='value of bottleneck constraint')
+parser.add_argument('--beta_lr', type=float, default=0.00001, help='stepsize for updating beta in vail')
 
-def get_obsgail_parser():
+
+def get_obsvail_parser():
     return parser
 
 

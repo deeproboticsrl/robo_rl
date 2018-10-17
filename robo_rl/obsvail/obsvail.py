@@ -1,12 +1,13 @@
 from robo_rl.common import Buffer
 
 
-class ObsGAIL:
+class ObsVAIL:
 
-    def __init__(self, expert_buffer, discriminator, off_policy_algo,env, replay_buffer_capacity=100000):
+    def __init__(self, expert_buffer, discriminator, encoder, off_policy_algo, env, replay_buffer_capacity=100000):
         """policy should also expose it's replay buffer to allow adding absorbing state transitions"""
         self.expert_buffer = expert_buffer
         self.discriminator = discriminator
+        self.encoder = encoder
         self.off_policy_algo = off_policy_algo
         self.current_iteration = 1
         self.env = env
@@ -24,7 +25,7 @@ class ObsGAIL:
     def train(self, num_iterations=100, learning_rate=1e-3, learning_rate_decay=0.5,
               learning_rate_decay_training_steps=1e5):
 
-        for iteration in range(self.current_iteration,self.current_iteration+num_iterations+1):
+        for iteration in range(self.current_iteration, self.current_iteration + num_iterations + 1):
 
             # TODO sample trajectory from sac policy
             # TODO wrap policy trajectory with absorbing state
@@ -42,7 +43,7 @@ class ObsGAIL:
                 and environment termination badding
                 """
 
-            # for i in len(trajectory):
+                # for i in len(trajectory):
                 """why this for loop"""
                 # TODO sample mini batches from replay buffer and expert buffer
                 """How to have mini batches at same format.
@@ -53,8 +54,8 @@ class ObsGAIL:
                 """
 
             # for i in len(trajectory):
-                # TODO sample mini batches from replay buffer
-                # TODO Calculate reward for policy using above sample and discriminator
-                # TODO Update policy using DDPG + TD3 and the batch sampled above
+            # TODO sample mini batches from replay buffer
+            # TODO Calculate reward for policy using above sample and discriminator
+            # TODO Update policy using DDPG + TD3 and the batch sampled above
 
         pass

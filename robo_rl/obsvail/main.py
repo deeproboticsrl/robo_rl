@@ -3,14 +3,14 @@ import os
 import numpy as np
 import torch
 from osim.env import ProstheticsEnv
-from robo_rl.common import LinearDiscriminator, Buffer
-from robo_rl.obsgail import ExpertBuffer, ObsGAIL
+from robo_rl.common import LinearPFDiscriminator, Buffer, LinearGaussianNetwork, no_activation
+from robo_rl.obsvail import ExpertBuffer, ObsVAIL
+from robo_rl.obsvail import get_obsvail_parser, get_logfile_name
 from robo_rl.sac import SAC, SigmoidSquasher
-from robo_rl.obsgail import get_obsgail_parser, get_logfile_name
 from tensorboardX import SummaryWriter
 from torch.optim import Adam
 
-parser = get_obsgail_parser()
+parser = get_obsvail_parser()
 args = parser.parse_args()
 env = ProstheticsEnv()
 
@@ -47,27 +47,30 @@ sac = SAC(action_dim=action_dim, state_dim=state_dim, hidden_dim=sac_hidden_dim,
 buffer = Buffer(capacity=args.replay_buffer_capacity)
 expert_buffer = ExpertBuffer(capacity=args.expert_buffer_capacity)
 
-
 # Fill expert buffer
 expert_file_path = "./experts/sampled_experts.obs"
 expert_buffer.add_from_file(expert_file_path=expert_file_path)
 
-
-latent_z_dim = int(state_dim/3)
+latent_z_dim = int(state_dim / 3)
 
 """Add 1 dimension for absorbing state
 This state isn't needed in the policy
 """
 discriminator_input_dim = latent_z_dim + 1
 discriminator_hidden_dim = [512]
+discriminator = LinearPFDiscriminator(input_dim=discriminator_input_dim, hidden_dim=discriminator_hidden_dim,
+                                      num_networks=args.num_networks_discriminator)
 
-# TODO use PFNN
-discriminator = LinearDiscriminator(input_dim=discriminator_input_dim, hidden_dim=discriminator_hidden_dim)
-
-obsgail = ObsGAIL(env=env,expert_buffer=expert_buffer, discriminator=discriminator, off_policy_algo=sac)
+encoder_layer_sizes = [state_dim]
+encoder_hidden_dim = [int(state_dim / 1.57), int(state_dim / 2), int(state_dim / 2.35)]
+encoder_layer_sizes.extend(encoder_hidden_dim)
+encoder_layer_sizes.append(latent_z_dim)
+encoder = LinearGaussianNetwork(layers_size=encoder_layer_sizes, final_layer_function=no_activation,
+                                activation_function=torch.relu, is_layer_norm=False)
+obsvail = ObsVAIL(env=env, expert_buffer=expert_buffer, discriminator=discriminator, off_policy_algo=sac)
 
 # TODO get from argparse
-# obsgail.train(num_iterations=,learning_rate=,learning_rate_decay=,learning_rate_decay_training_steps=)
+# obsvail.train(num_iterations=,learning_rate=,learning_rate_decay=,learning_rate_decay_training_steps=)
 
 # TODO Gradient clipping in actor net
 

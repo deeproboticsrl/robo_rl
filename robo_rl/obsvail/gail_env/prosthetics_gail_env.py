@@ -1,4 +1,4 @@
-from robo_rl.obsgail.gail_env.gail_env import GAILEnv
+from robo_rl.obsvail.gail_env.gail_env import GAILEnv
 from osim.env import ProstheticsEnv
 
 

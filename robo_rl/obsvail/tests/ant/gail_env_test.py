@@ -1,4 +1,4 @@
-from robo_rl.obsgail.gail_env.ant_gail_env import AntGAILEnv
+from robo_rl.obsvail.gail_env.ant_gail_env import AntGAILEnv
 import pickle
 import robo_rl.common.utils.utils as utils
 
