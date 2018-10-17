@@ -5,7 +5,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 from robo_rl.common.utils import print_heading
-from robo_rl.common.utils import print_network_architecture
 from robo_rl.common.utils import soft_update
 from robo_rl.sac import SAC
 from robo_rl.sac import TanhSquasher
@@ -37,13 +36,13 @@ sac = SAC(state_dim=state_dim, action_dim=action_dim, writer=writer, hidden_dim=
           optimizer=SGD)
 
 print_heading("Architecture of value network")
-print_network_architecture(sac.value)
+print(sac.value)
 
 print_heading("Architecture of Q-value networks (critics)")
-print_network_architecture(sac.critics)
+print(sac.critics)
 
 print_heading("Architecture of policy")
-print_network_architecture(sac.policy)
+print(sac.policy)
 
 print_heading("Check initialisation of networks using random observation and action")
 state = torch.Tensor(env.reset()["observation"])

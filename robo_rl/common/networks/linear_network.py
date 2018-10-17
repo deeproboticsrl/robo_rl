@@ -4,7 +4,8 @@ import torch.nn as nn
 class LinearNetwork(nn.Module):
 
     def __init__(self, layers_size, final_layer_function, activation_function, is_layer_norm=True,
-                 is_final_layer_norm=False, is_dropout=False, dropout_probability=0.5, bias=True):
+                 is_final_layer_norm=False, is_dropout=False, dropout_probability=0.5, bias=True,
+                 requires_grad=True):
         """
         Arguments:
 
@@ -33,7 +34,8 @@ class LinearNetwork(nn.Module):
         self.is_dropout = is_dropout
 
         super().__init__()
-        self.linear_layers = nn.ModuleList([nn.Linear(layers_size[i], layers_size[i + 1], bias=bias)
+        self.linear_layers = nn.ModuleList([nn.Linear(layers_size[i], layers_size[i + 1], bias=bias,
+                                                      requires_grad=requires_grad)
                                             for i in range(len(layers_size) - 1)])
         if self.is_layer_norm:
             # applied on outputs of hidden layers

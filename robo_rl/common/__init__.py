@@ -4,6 +4,5 @@ from robo_rl.common.networks.value_network import LinearValueNetwork, LinearQNet
 from robo_rl.common.networks.discriminator import LinearDiscriminator
 from robo_rl.common.networks.pfnn import LinearPFNN
 from robo_rl.common.networks.vae import LinearVAE
-from robo_rl.common.utils.nn_utils import print_network_architecture
 from robo_rl.common.utils.nn_utils import xavier_initialisation, soft_update, hard_update, no_activation
 from robo_rl.common.utils.utils import print_heading, heading_decorator, gym_torchify

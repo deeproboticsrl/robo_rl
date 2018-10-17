@@ -15,7 +15,7 @@ pfnn = LinearPFNN(layers_size=layers_size, final_layer_function=final_layer_func
                   activation_function=activation_function, num_networks=num_networks)
 
 input_tensor = torch.Tensor([0.291])
-phase = 0.991
+phase = 0.70
 
 x = {"input": input_tensor, "phase": phase}
 
@@ -48,12 +48,22 @@ optimiser = Adam(pfnn.basis_networks.parameters(), lr=0.01)
 left_net = pfnn.basis_networks[left_index]
 right_net = pfnn.basis_networks[right_index]
 
+y = pfnn.main_network.forward(input_tensor)
+# y = pfnn.forward(x)
+
+# x1 = {"input": input_tensor, "phase": 0.8}
+# y1 = pfnn.forward(x1)
+print_heading("Output")
+print("y".ljust(25), y)
+
+#  NOTE - cant do 2 forward. true for any net in general
+# print("y1".ljust(25), y1)
+
 for main_param, left_param, right_param in zip(pfnn.main_network.parameters(), left_net.parameters(),
                                                right_net.parameters()):
-    main_param.data = weight * left_param.data + (1 - weight) * right_param.data
+    main_param.copy_(weight * left_param + (1 - weight) * right_param)
 
 y = pfnn.main_network.forward(input_tensor)
-# y = right_net.forward(input_tensor)
 
 print_heading("Output")
 print("y".ljust(25), y)
@@ -71,3 +81,7 @@ print_heading("Network weights after backprop")
 for i in range(num_networks):
     print(f"Network {i}")
     print(pfnn.basis_networks[i].state_dict()['linear_layers.0.weight'])
+
+y = pfnn.forward(x)
+print_heading("Output")
+print("y".ljust(25), y)

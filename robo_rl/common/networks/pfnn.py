@@ -27,7 +27,7 @@ class LinearPFNN(nn.Module):
         # This network is used for forward
         self.main_network = LinearNetwork(layers_size=layers_size, final_layer_function=final_layer_function,
                                           activation_function=activation_function, is_layer_norm=False,
-                                          is_dropout=False, bias=bias)
+                                          is_dropout=False, bias=bias,requires_grad=False)
 
     def forward(self, x):
         """Expected x to be dict containing input tensor and it's phase
@@ -47,5 +47,14 @@ class LinearPFNN(nn.Module):
         left_phase = left_index / self.num_networks
         right_phase = left_phase + (1 / self.num_networks)
 
+        # phase = weight * left_phase + (1-weight) * right_phase
+        weight = (right_phase - phase) * self.num_networks
+
         left_net = self.basis_networks[left_index]
         right_net = self.basis_networks[right_index]
+
+        for main_param, left_param, right_param in zip(self.main_network.parameters(), left_net.parameters(),
+                                                       right_net.parameters()):
+            main_param.copy_(weight * left_param + (1 - weight) * right_param)
+
+        return self.main_network.forward(input_tensor)
