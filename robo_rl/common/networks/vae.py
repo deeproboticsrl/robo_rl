@@ -1,4 +1,4 @@
-from robo_rl.common.networks import LinearNetwork, LinearGaussianNetwork
+from robo_rl.common import LinearNetwork, LinearGaussianNetwork
 import torch.nn as nn
 import torch.nn.functional as torchfunc
 from robo_rl.common.utils.nn_utils import no_activation

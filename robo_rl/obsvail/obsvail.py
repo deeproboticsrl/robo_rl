@@ -1,3 +1,5 @@
+import numpy as np
+from pros_ai import get_policy_observation, get_expert_observation
 from robo_rl.common import Buffer
 
 
@@ -15,11 +17,21 @@ class ObsVAIL:
         # initialise replay buffer
         self.replay_buffer = Buffer(capacity=replay_buffer_capacity)
 
-        # TODO absorbing state implemented by adding 1 more dimension(a bool) to state space
+        observation = self.env.reset(project=False)
+        self.policy_state_dim = get_policy_observation(observation).shape[0]
+        self.expert_state_dim = get_expert_observation(observation).shape[0]
 
-        # TODO wrap all expert trajectories with absorbing state and make them of equal length .
-        """Then D can judge whether to go here or not based on expert and assign reward. 
-        so this  is how reward for absorbing state is learnt 
+        # Absorbing state has last(indicator) dimension as 1 and all others as 0.
+        absorbing_state_temp = [0] * self.expert_state_dim
+        absorbing_state_temp.append(1)
+        self.absorbing_state = np.array(absorbing_state_temp)
+
+        """Wrap all expert trajectories with absorbing state and make them of equal length .
+        Then D can judge whether to go here or not based on expert and assign reward. 
+        Wrapping requires adding an additional dimension to all the other states which seems time consuming
+        An easier(lazier) approach could be to identify the non-absorbing state when sampled and append 0 then
+        or at least append 0 only when sampled and then store this sampled one. But that adds a sanity check overhead.
+        Why not preprocess all the experts and passing a wrapped buffer to this class.
         """
 
     def train(self, num_iterations=100, learning_rate=1e-3, learning_rate_decay=0.5,

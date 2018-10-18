@@ -3,7 +3,6 @@ import os
 import numpy as np
 import torch
 from osim.env import ProstheticsEnv
-from pros_ai import get_policy_observation, get_expert_observation
 from robo_rl.common import LinearPFDiscriminator, Buffer, LinearGaussianNetwork, no_activation
 from robo_rl.obsvail import ExpertBuffer, ObsVAIL
 from robo_rl.obsvail import get_obsvail_parser, get_logfile_name
@@ -19,12 +18,8 @@ env.seed(args.env_seed)
 torch.manual_seed(args.env_seed)
 np.random.seed(args.env_seed)
 
-observation = env.reset(project=False)
 action_dim = env.action_space.shape[0]
-
-"""This is done to allow having different observations for policy and discriminator
-"""
-policy_state_dim = get_policy_observation(observation).shape[0]
+state_dim = env.observation_space.shape[0]
 # According to VAIL
 sac_hidden_dim = [1024, 512]
 
@@ -40,7 +35,7 @@ writer = SummaryWriter(log_dir=logdir)
 
 squasher = SigmoidSquasher()
 
-sac = SAC(action_dim=action_dim, state_dim=policy_state_dim, hidden_dim=sac_hidden_dim,
+sac = SAC(action_dim=action_dim, state_dim=state_dim, hidden_dim=sac_hidden_dim,
           discount_factor=args.discount_factor, optimizer=Adam, policy_lr=args.policy_lr, critic_lr=args.critic_lr,
           value_lr=args.value_lr, writer=writer, scale_reward=args.scale_reward, reparam=args.reparam,
           target_update_interval=args.target_update_interval, soft_update_tau=args.soft_update_tau,
@@ -56,33 +51,19 @@ expert_buffer = ExpertBuffer(capacity=args.expert_buffer_capacity)
 expert_file_path = "./experts/sampled_experts.obs"
 expert_buffer.add_from_file(expert_file_path=expert_file_path)
 
-expert_state_dim = get_expert_observation(observation).shape[0]
-latent_z_dim = int(expert_state_dim / 3)
+latent_z_dim = int(state_dim / 3)
 
-"""Add 1 dimension for absorbing state
-This state isn't needed in the policy
-"""
 discriminator_input_dim = latent_z_dim + 1
 discriminator_hidden_dim = [512]
 discriminator = LinearPFDiscriminator(input_dim=discriminator_input_dim, hidden_dim=discriminator_hidden_dim,
                                       num_networks=args.num_networks_discriminator)
 
-encoder_layer_sizes = [expert_state_dim]
-encoder_hidden_dim = [int(expert_state_dim / 1.57), int(expert_state_dim / 2), int(expert_state_dim / 2.35)]
+encoder_layer_sizes = [state_dim]
+encoder_hidden_dim = [int(state_dim / 1.57), int(state_dim / 2), int(state_dim / 2.35)]
 encoder_layer_sizes.extend(encoder_hidden_dim)
 encoder_layer_sizes.append(latent_z_dim)
 encoder = LinearGaussianNetwork(layers_size=encoder_layer_sizes, final_layer_function=no_activation,
                                 activation_function=torch.relu, is_layer_norm=False)
 
 obsvail = ObsVAIL(env=env, expert_buffer=expert_buffer, discriminator=discriminator, off_policy_algo=sac,
-                  encoder=encoder, replay_buffer_capacity=args.replay_buffer_capcity)
-
-# TODO get from argparse
-# obsvail.train(num_iterations=,learning_rate=,learning_rate_decay=,learning_rate_decay_training_steps=)
-
-# TODO Gradient clipping in actor net
-
-# TODO For SAC use reparam trick with normalising flow(??)
-
-# TODO regularisation in form of gradient penalties for stable learning. makes GAN stable. Refer paper
-# TODO Should we use simple weight regularisation then?
+                  encoder=encoder,replay_buffer_capacity=args.replay_buffer_capcity)

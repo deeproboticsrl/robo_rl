@@ -4,7 +4,7 @@ import robo_rl.common.utils.nn_utils as nn_utils
 import robo_rl.common.utils.utils as utils
 import torch
 import torch.nn as nn
-from robo_rl.common.networks import LinearQNetwork, LinearValueNetwork
+from robo_rl.common import LinearQNetwork, LinearValueNetwork
 from robo_rl.common.utils import soft_update, hard_update
 from robo_rl.sac import GaussianPolicy
 

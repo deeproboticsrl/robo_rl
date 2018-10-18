@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as torchfunc
-from robo_rl.common.networks import LinearGaussianNetwork
-from robo_rl.common.utils import no_activation
+from robo_rl.common import LinearGaussianNetwork
+from robo_rl.common import no_activation
 from torch.distributions import Normal
 import numpy as np
 
