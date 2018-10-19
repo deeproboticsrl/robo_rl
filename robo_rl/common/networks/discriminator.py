@@ -19,9 +19,6 @@ class LinearDiscriminator(LinearNetwork):
         super().__init__(layers_size=layers_size, is_layer_norm=False, activation_function=activation_function,
                          final_layer_function=torch.sigmoid, bias=bias)
 
-    def forward(self, x):
-        return super().forward(x)
-
 
 class LinearPFDiscriminator(LinearPFNN):
 
@@ -31,6 +28,3 @@ class LinearPFDiscriminator(LinearPFNN):
         layers_size.append(1)
         super().__init__(layers_size=layers_size, activation_function=activation_function, num_networks=num_networks,
                          final_layer_function=torch.sigmoid, bias=bias)
-
-    def forward(self, x):
-        return super().forward(x)

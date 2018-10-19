@@ -29,8 +29,8 @@ class ObsVAIL:
         """Wrap all expert trajectories with absorbing state and make them of equal length .
         Then D can judge whether to go here or not based on expert and assign reward. 
         Wrapping requires adding an additional dimension to all the other states which seems time consuming
-        An easier(lazier) approach could be to identify the non-absorbing state when sampled and append 0 then
-        or at least append 0 only when sampled and then store this sampled one. But that adds a sanity check overhead.
+        An easier(lazier) approach could be to identify the non-absorbing state when sampled and append 0 then.
+        But that adds a sanity check overhead.
         Why not preprocess all the experts and passing a wrapped buffer to this class.
         """
 

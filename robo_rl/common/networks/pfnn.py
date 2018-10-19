@@ -1,4 +1,6 @@
+import torch
 import torch.nn as nn
+import torch.nn.functional as torchfunc
 from robo_rl.common import LinearNetwork
 
 
@@ -18,21 +20,22 @@ class LinearPFNN(nn.Module):
 
     def __init__(self, layers_size, final_layer_function, activation_function, num_networks=5, bias=True):
         self.num_networks = num_networks
+        self.bias = bias
+        self.activation_function = activation_function
+        self.final_layer_function = final_layer_function
         super().__init__()
         self.basis_networks = nn.ModuleList(
             [LinearNetwork(layers_size=layers_size, final_layer_function=final_layer_function,
                            activation_function=activation_function, is_layer_norm=False,
                            is_dropout=False, bias=bias)
              for _ in range(num_networks)])
-        # This network is used for forward
-        self.main_network = LinearNetwork(layers_size=layers_size, final_layer_function=final_layer_function,
-                                          activation_function=activation_function, is_layer_norm=False,
-                                          is_dropout=False, bias=bias,requires_grad=False)
 
     def forward(self, x):
         """Expected x to be dict containing input tensor and it's phase
         Batch operations not supported yet since for different phases, already using different nets(weights)
         so forward is called individually for them.
+
+        NOTE - USE None_grad function instead of zero_grad if using an optimiser which uses history to make grad updates
         """
         input_tensor = x["input"]
 
@@ -48,13 +51,34 @@ class LinearPFNN(nn.Module):
         right_phase = left_phase + (1 / self.num_networks)
 
         # phase = weight * left_phase + (1-weight) * right_phase
-        weight = (right_phase - phase) * self.num_networks
+        interpolation_weight = (right_phase - phase) * self.num_networks
 
         left_net = self.basis_networks[left_index]
         right_net = self.basis_networks[right_index]
 
-        for main_param, left_param, right_param in zip(self.main_network.parameters(), left_net.parameters(),
-                                                       right_net.parameters()):
-            main_param.copy_(weight * left_param + (1 - weight) * right_param)
+        x = input_tensor
 
-        return self.main_network.forward(input_tensor)
+        # Forward pass of the underlying net using functional API
+        for i in range(len(left_net.linear_layers) - 1):
+            weight = interpolation_weight * torch.Tensor(left_net.linear_layers[i].weight) + (
+                    1 - interpolation_weight) * torch.Tensor(right_net.linear_layers[i].weight)
+            if self.bias:
+                bias = interpolation_weight * torch.Tensor(left_net.linear_layers[i].bias) + (
+                        1 - interpolation_weight) * torch.Tensor(right_net.linear_layers[i].bias)
+                x = torchfunc.linear(x, weight=weight, bias=bias)
+            else:
+                x = torchfunc.linear(x, weight=weight)
+            x = self.activation_function(x)
+
+        final_layer_weight = interpolation_weight * torch.Tensor(left_net.linear_layers[-1].weight) + (
+                1 - interpolation_weight) * torch.Tensor(right_net.linear_layers[-1].weight)
+
+        if self.bias:
+            final_layer_bias = interpolation_weight * torch.Tensor(left_net.linear_layers[-1].bias) + (
+                    1 - interpolation_weight) * torch.Tensor(right_net.linear_layers[-1].bias)
+            x = torchfunc.linear(x, weight=final_layer_weight, bias=final_layer_bias)
+        else:
+            x = torchfunc.linear(x, weight=final_layer_weight)
+
+        return self.final_layer_function(x)
+

@@ -29,6 +29,7 @@ class LinearNetwork(nn.Module):
         self.final_layer_function = final_layer_function
         self.activation_function = activation_function
 
+        self.bias = bias
         self.is_layer_norm = is_layer_norm
         self.is_final_layer_norm = is_final_layer_norm
         self.is_dropout = is_dropout

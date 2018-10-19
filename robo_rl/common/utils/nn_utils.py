@@ -23,3 +23,11 @@ def soft_update(original, target, t=0.005):
 def hard_update(original, target):
     for original_param, target_param in zip(original.parameters(), target.parameters()):
         target_param.data.copy_(original_param.data)
+
+
+def None_grad(optimiser):
+    for group in optimiser.param_groups:
+        for p in group['params']:
+            if p.grad is not None:
+                p.grad.detach_()
+                p.grad = None
