@@ -12,10 +12,13 @@ from robo_rl.sac import SAC, SigmoidSquasher
 from tensorboardX import SummaryWriter
 from torch.optim import Adam
 
+optimizer = Adam
+
 parser = get_obsvail_parser()
 args = parser.parse_args()
 env = ProstheticsEnv(visualize=False)
 
+# seeding
 env.seed(args.env_seed)
 torch.manual_seed(args.env_seed)
 np.random.seed(args.env_seed)
@@ -42,7 +45,7 @@ writer = SummaryWriter(log_dir=logdir)
 squasher = SigmoidSquasher()
 
 sac = SAC(action_dim=action_dim, state_dim=policy_state_dim, hidden_dim=sac_hidden_dim,
-          discount_factor=args.discount_factor, optimizer=Adam, policy_lr=args.policy_lr, critic_lr=args.critic_lr,
+          discount_factor=args.discount_factor, optimizer=optimizer, policy_lr=args.policy_lr, critic_lr=args.critic_lr,
           value_lr=args.value_lr, writer=writer, scale_reward=args.scale_reward, reparam=args.reparam,
           target_update_interval=args.target_update_interval, soft_update_tau=args.soft_update_tau,
           td3_update_interval=args.td3_update_interval, squasher=squasher, weight_decay=args.weight_decay,
@@ -75,12 +78,16 @@ encoder_layer_sizes.append(latent_z_dim)
 encoder = LinearGaussianNetwork(layers_size=encoder_layer_sizes, final_layer_function=no_activation,
                                 activation_function=torchfunc.relu, is_layer_norm=False)
 
+# TODO get from argparse lr decay and steps
 obsvail = ObsVAIL(env=env, expert_file_path=expert_file_path, discriminator=discriminator, off_policy_algorithm=sac,
-                  encoder=encoder, replay_buffer_capacity=args.replay_buffer_capacity,
-                  absorbing_state_dim=discriminator_input_dim)
+                  encoder=encoder, replay_buffer_capacity=args.replay_buffer_capacity,context_dim=context_dim,
+                  absorbing_state_dim=discriminator_input_dim, writer=writer, beta_lr=args.beta_lr,
+                  discriminator_lr=args.discriminator_lr, encoder_lr=args.encoder_lr, beta_init=args.beta_init,
+                  learning_rate_decay=22, learning_rate_decay_training_steps=22, optimizer=optimizer,
+                  weight_decay=args.weight_decay, grad_clip=args.grad_clip, loss_clip=args.loss_clip,
+                  clip_val_grad=args.clip_val_grad, clip_val_loss=args.clip_val_loss)
 
-# TODO get from argparse
-# obsvail.train(num_iterations=,learning_rate=,learning_rate_decay=,learning_rate_decay_training_steps=)
+obsvail.train(num_iterations=args.num_iterations, save_iter=args.save_iter)
 
 # TODO Gradient clipping in actor net
 

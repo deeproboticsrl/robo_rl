@@ -6,6 +6,6 @@ Digraph.*
 events.*
 *.json
 tensorboard_log/
-model/
-buffer/
+model/*.pkl
+buffer/*.pkl
 *.obs

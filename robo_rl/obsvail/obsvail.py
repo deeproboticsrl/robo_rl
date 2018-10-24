@@ -1,21 +1,33 @@
 import pickle
 
 import numpy as np
+import torch
 from pros_ai import get_policy_observation, get_expert_observation
-from robo_rl.common import TrajectoryBuffer
+from robo_rl.common import TrajectoryBuffer, xavier_initialisation
 
 
 class ObsVAIL:
 
     def __init__(self, expert_file_path, discriminator, encoder, off_policy_algorithm, env, absorbing_state_dim,
-                 replay_buffer_capacity=100000):
+                 beta_init, optimizer, beta_lr, discriminator_lr, encoder_lr, context_dim,
+                 writer, weight_decay=0, grad_clip=0.01, loss_clip=100,
+                 clip_val_grad=False, clip_val_loss=False, replay_buffer_capacity=100000,
+                 learning_rate_decay=0.5, learning_rate_decay_training_steps=1e5):
+
+        self.discriminator = discriminator
+        self.encoder = encoder
+        self.off_policy_algorithm = off_policy_algorithm
+        self.current_iteration = 1
+        self.env = env
+        self.context_dim = context_dim
+        self.writer = writer
 
         # Load expert trajectories
         with open(expert_file_path, "rb") as expert_file:
             expert_trajectories = pickle.load(expert_file)
 
         # Trajectory Length = Expert trajectory length + 2 (for absorbing states)
-        self.trajectory_length = len(expert_trajectories[0]) + 2
+        self.trajectory_length = len(expert_trajectories[0]["trajectory"]) + 2
 
         # Wrap expert trajectories
         self._wrap_trajectories(expert_trajectories, add_absorbing=True)
@@ -24,12 +36,6 @@ class ObsVAIL:
         self.expert_buffer = TrajectoryBuffer(capacity=len(expert_trajectories))
         for expert_trajectory in expert_trajectories:
             self.expert_buffer.add(expert_trajectory)
-
-        self.discriminator = discriminator
-        self.encoder = encoder
-        self.off_policy_algorithm = off_policy_algorithm
-        self.current_iteration = 1
-        self.env = env
 
         # initialise replay buffer
         self.replay_buffer = TrajectoryBuffer(capacity=replay_buffer_capacity)
@@ -43,12 +49,67 @@ class ObsVAIL:
         absorbing_state_temp[-1] = 1
         self.absorbing_state = np.array(absorbing_state_temp)
 
-    def train(self, num_iterations=100, learning_rate=1e-3, learning_rate_decay=0.5,
-              learning_rate_decay_training_steps=1e5):
+        self.weight_decay = weight_decay
+        self.grad_clip = grad_clip
+        self.loss_clip = loss_clip
+        self.clip_val_grad = clip_val_grad
+        self.clip_val_loss = clip_val_loss
+
+        self.beta_init = beta_init
+        self.beta_lr = beta_lr
+        self.discriminator_lr = discriminator_lr
+        self.encoder_lr = encoder_lr
+
+        # initialise parameters
+        self.beta = self.beta_init
+        self.discriminator.apply(xavier_initialisation)
+        self.encoder.apply(xavier_initialisation)
+
+        # initialise optimisers
+        self.discriminator_optimizer = optimizer(self.discriminator.parameters(), lr=self.discriminator_lr,
+                                                 weight_decay=self.weight_decay)
+        self.encoder_optimizer = optimizer(self.encoder.parameters(), lr=self.encoder_lr,
+                                           weight_decay=self.weight_decay)
+
+    def train(self, save_iter, num_iterations=1000):
 
         for iteration in range(self.current_iteration, self.current_iteration + num_iterations + 1):
 
             # TODO sample trajectory from sac policy
+
+            policy_trajectory = []
+            observation = get_policy_observation(self.env.reset(project=False))
+
+            # Sample random context for the trajectory
+            context = [np.random.randint(0, 1) for _ in range(self.context_dim)]
+
+            state = torch.Tensor(np.append(observation, context))
+            done = False
+            timestep = 0
+
+            while not done and timestep <= self.trajectory_length - 2:
+                # used only as a metric for performance
+                episode_reward = 0
+                action = self.off_policy_algorithm.get_action(state).detach()
+                observation, reward, done, _ = gym_torchify(env.step(action))
+                sample = dict(state=state, action=action, reward=reward, next_state=observation, done=done)
+                buffer.add(sample)
+                if len(buffer) > 10 * args.sample_batch_size:
+                    for num_update in range(args.updates_per_step):
+                        update_count += 1
+                        batch_list_of_dicts = buffer.sample(batch_size=args.sample_batch_size)
+                        batch_dict_of_lists = ld_to_dl(batch_list_of_dicts)
+
+                        """ Combined Experience replay. Add online transition too.
+                        """
+                        for k in batch_list_of_dicts[0].keys():
+                            batch_dict_of_lists[k].append(sample[k])
+                        sac.policy_update(batch_dict_of_lists, update_number=update_count)
+
+                episode_reward += reward
+                state = observation
+                timestep += 1
+
             # TODO wrap policy trajectory with absorbing state
             end_trjectory_bool = False
             while end_trjectory_bool:
@@ -90,12 +151,9 @@ class ObsVAIL:
 
         for trajectory in trajectories:
             if add_absorbing:
-                for timestep in range(len(trajectory)):
-                    trajectory[timestep]["is_absorbing"] = False
-
-            # Assumed same context for whole trajectory
-            trajectory_context = trajectory[0]["context"]
+                for timestep in range(len(trajectory["trajectory"])):
+                    trajectory["trajectory"][timestep]["is_absorbing"] = False
 
             # Pad trajectory with absorbing state
-            for i in range(len(trajectory), self.trajectory_length):
-                trajectory.append({"is_absorbing": True, "context": trajectory_context})
+            for i in range(len(trajectory["trajectory"]), self.trajectory_length):
+                trajectory["trajectory"].append({"is_absorbing": True})
