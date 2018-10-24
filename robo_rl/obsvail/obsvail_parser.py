@@ -60,9 +60,10 @@ def get_logfile_name(args):
 
     logfile += f"_reward_scale={args.scale_reward}_tau={args.soft_update_tau}"
     logfile += f"_samples={args.sample_batch_size}_discount_factor={args.discount_factor}"
-    logfile += f"_td3={args.td3_update_interval}_lr={args.lr}_distance_threshold={args.distance_threshold}"
+    logfile += f"_td3={args.td3_update_interval}"
     logfile += f"_updates={args.updates_per_step}_num_episodes={args.num_episodes}"
     logfile += f"_log_std_min={args.log_std_min}_max={args.log_std_max}_seed={args.env_seed}"
+    logfile += f"_LR_policy_{args.policy_lr}_critic_{args.critic_lr}_value_{args.value_lr}_"
 
     if args.grad_clip:
         logfile += f"_grad_clip_{args.clip_val_grad}"

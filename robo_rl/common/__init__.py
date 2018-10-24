@@ -1,4 +1,5 @@
 from robo_rl.common.buffer.buffer import Buffer
+from robo_rl.common.buffer.trajectory_buffer import TrajectoryBuffer
 from robo_rl.common.networks.linear_network import LinearNetwork, LinearGaussianNetwork
 from robo_rl.common.networks.value_network import LinearValueNetwork, LinearQNetwork
 from robo_rl.common.networks.pfnn import LinearPFNN

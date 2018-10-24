@@ -1,38 +1,47 @@
+import pickle
+
 import numpy as np
 from pros_ai import get_policy_observation, get_expert_observation
-from robo_rl.common import Buffer
+from robo_rl.common import TrajectoryBuffer
 
 
 class ObsVAIL:
 
-    def __init__(self, expert_buffer, discriminator, encoder, off_policy_algo, env, replay_buffer_capacity=100000):
-        """policy should also expose it's replay buffer to allow adding absorbing state transitions"""
-        self.expert_buffer = expert_buffer
+    def __init__(self, expert_file_path, discriminator, encoder, off_policy_algorithm, env, absorbing_state_dim,
+                 replay_buffer_capacity=100000):
+
+        # Load expert trajectories
+        with open(expert_file_path, "rb") as expert_file:
+            expert_trajectories = pickle.load(expert_file)
+
+        # Trajectory Length = Expert trajectory length + 2 (for absorbing states)
+        self.trajectory_length = len(expert_trajectories[0]) + 2
+
+        # Wrap expert trajectories
+        self._wrap_trajectories(expert_trajectories, add_absorbing=True)
+
+        # Fill expert buffer
+        self.expert_buffer = TrajectoryBuffer(capacity=len(expert_trajectories))
+        for expert_trajectory in expert_trajectories:
+            self.expert_buffer.add(expert_trajectory)
+
         self.discriminator = discriminator
         self.encoder = encoder
-        self.off_policy_algo = off_policy_algo
+        self.off_policy_algorithm = off_policy_algorithm
         self.current_iteration = 1
         self.env = env
 
         # initialise replay buffer
-        self.replay_buffer = Buffer(capacity=replay_buffer_capacity)
+        self.replay_buffer = TrajectoryBuffer(capacity=replay_buffer_capacity)
 
         observation = self.env.reset(project=False)
         self.policy_state_dim = get_policy_observation(observation).shape[0]
         self.expert_state_dim = get_expert_observation(observation).shape[0]
 
         # Absorbing state has last(indicator) dimension as 1 and all others as 0.
-        absorbing_state_temp = [0] * self.expert_state_dim
-        absorbing_state_temp.append(1)
+        absorbing_state_temp = [0] * absorbing_state_dim
+        absorbing_state_temp[-1] = 1
         self.absorbing_state = np.array(absorbing_state_temp)
-
-        """Wrap all expert trajectories with absorbing state and make them of equal length .
-        Then D can judge whether to go here or not based on expert and assign reward. 
-        Wrapping requires adding an additional dimension to all the other states which seems time consuming
-        An easier(lazier) approach could be to identify the non-absorbing state when sampled and append 0 then.
-        But that adds a sanity check overhead.
-        Why not preprocess all the experts and passing a wrapped buffer to this class.
-        """
 
     def train(self, num_iterations=100, learning_rate=1e-3, learning_rate_decay=0.5,
               learning_rate_decay_training_steps=1e5):
@@ -71,3 +80,22 @@ class ObsVAIL:
             # TODO Update policy using DDPG + TD3 and the batch sampled above
 
         pass
+
+    def _wrap_trajectories(self, trajectories, add_absorbing=False):
+        """Wrap trajectories with absorbing state transition.
+        Assumed each transition in trajectory to be a dict which can contain the following
+        State, Action, Environment Reward, Context, Abosrbing state indicator
+        If add_absorbing is True, then absorbing state indicator is added to each state in the trajectory
+        else it is assumed to be already present and only absorbing transition is added."""
+
+        for trajectory in trajectories:
+            if add_absorbing:
+                for timestep in range(len(trajectory)):
+                    trajectory[timestep]["is_absorbing"] = False
+
+            # Assumed same context for whole trajectory
+            trajectory_context = trajectory[0]["context"]
+
+            # Pad trajectory with absorbing state
+            for i in range(len(trajectory), self.trajectory_length):
+                trajectory.append({"is_absorbing": True, "context": trajectory_context})

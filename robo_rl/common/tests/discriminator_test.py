@@ -27,4 +27,4 @@ print((discriminator.linear_layers[2]).weight)
 print((discriminator.linear_layers[2]).weight.grad)
 
 dot = make_dot(y)
-dot.render()
+# dot.render()
