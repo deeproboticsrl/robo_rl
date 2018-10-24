@@ -29,6 +29,8 @@ action_dim = env.action_space.shape[0]
 """This is done to allow having different observations for policy and discriminator
 """
 policy_state_dim = get_policy_observation(observation).shape[0]
+# TODO make it automatic
+context_dim = 2
 # According to VAIL
 sac_hidden_dim = [1024, 512]
 
@@ -44,7 +46,7 @@ writer = SummaryWriter(log_dir=logdir)
 
 squasher = SigmoidSquasher()
 
-sac = SAC(action_dim=action_dim, state_dim=policy_state_dim, hidden_dim=sac_hidden_dim,
+sac = SAC(action_dim=action_dim, state_dim=policy_state_dim + context_dim, hidden_dim=sac_hidden_dim,
           discount_factor=args.discount_factor, optimizer=optimizer, policy_lr=args.policy_lr, critic_lr=args.critic_lr,
           value_lr=args.value_lr, writer=writer, scale_reward=args.scale_reward, reparam=args.reparam,
           target_update_interval=args.target_update_interval, soft_update_tau=args.soft_update_tau,
@@ -61,8 +63,6 @@ expert_file_path = "./experts/sampled_experts.obs"
 expert_state_dim = get_expert_observation(observation).shape[0]
 latent_z_dim = int(expert_state_dim / 3)
 
-# TODO make it automatic
-context_dim = 2
 """Add 1 dimension for absorbing state
 This state isn't needed in the policy
 """

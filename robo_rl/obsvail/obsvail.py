@@ -75,7 +75,7 @@ class ObsVAIL:
 
         for iteration in range(self.current_iteration, self.current_iteration + num_iterations + 1):
 
-            # TODO sample trajectory from sac policy
+            # Sample trajectory using policy
 
             policy_trajectory = []
             observation = get_policy_observation(self.env.reset(project=False))
@@ -91,26 +91,20 @@ class ObsVAIL:
                 # used only as a metric for performance
                 episode_reward = 0
                 action = self.off_policy_algorithm.get_action(state).detach()
-                observation, reward, done, _ = gym_torchify(env.step(action))
-                sample = dict(state=state, action=action, reward=reward, next_state=observation, done=done)
-                buffer.add(sample)
-                if len(buffer) > 10 * args.sample_batch_size:
-                    for num_update in range(args.updates_per_step):
-                        update_count += 1
-                        batch_list_of_dicts = buffer.sample(batch_size=args.sample_batch_size)
-                        batch_dict_of_lists = ld_to_dl(batch_list_of_dicts)
+                observation, reward, done, _ = self.env.step(np.array(action), project=False)
+                observation = get_policy_observation(observation)
+                sample = dict(state=observation, action=action, reward=reward, is_absorbing=False)
+                policy_trajectory.append(sample)
 
-                        """ Combined Experience replay. Add online transition too.
-                        """
-                        for k in batch_list_of_dicts[0].keys():
-                            batch_dict_of_lists[k].append(sample[k])
-                        sac.policy_update(batch_dict_of_lists, update_number=update_count)
-
+                state = torch.Tensor(np.append(observation, context))
                 episode_reward += reward
-                state = observation
                 timestep += 1
 
-            # TODO wrap policy trajectory with absorbing state
+            # Wrap policy trajectory with absorbing state and store in replay buffer
+            policy_trajectory = {"trajectory": policy_trajectory, "context": context}
+            self._wrap_trajectories([policy_trajectory])
+            self.replay_buffer.add(policy_trajectory)
+
             end_trjectory_bool = False
             while end_trjectory_bool:
                 """In each trajectory

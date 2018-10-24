@@ -30,6 +30,8 @@ action_dim = env.action_space.shape[0]
 """This is done to allow having different observations for policy and discriminator
 """
 policy_state_dim = get_policy_observation(observation).shape[0]
+context_dim = 2
+
 # According to VAIL
 sac_hidden_dim = [1024, 512]
 
@@ -45,7 +47,7 @@ writer = SummaryWriter(log_dir=logdir)
 
 squasher = SigmoidSquasher()
 
-sac = SAC(action_dim=action_dim, state_dim=policy_state_dim, hidden_dim=sac_hidden_dim,
+sac = SAC(action_dim=action_dim, state_dim=policy_state_dim + context_dim, hidden_dim=sac_hidden_dim,
           discount_factor=args.discount_factor, optimizer=optimizer, policy_lr=args.policy_lr, critic_lr=args.critic_lr,
           value_lr=args.value_lr, writer=writer, scale_reward=args.scale_reward, reparam=args.reparam,
           target_update_interval=args.target_update_interval, soft_update_tau=args.soft_update_tau,
@@ -62,7 +64,6 @@ expert_file_path = "../experts/sampled_experts.obs"
 expert_state_dim = get_expert_observation(observation).shape[0]
 latent_z_dim = int(expert_state_dim / 3)
 
-context_dim = 2
 """Add 1 dimension for absorbing state
 This state isn't needed in the policy
 """
@@ -103,6 +104,7 @@ print("Abosrbing indicator for 2nd last state".ljust(50), expert_trajectory[-2][
 
 print_heading("SAC episode sampling")
 
+policy_trajectory = []
 observation = get_policy_observation(obsvail.env.reset(project=False))
 # Sample random context for the trajectory
 context = [np.random.randint(0, 1) for _ in range(obsvail.context_dim)]
@@ -110,3 +112,33 @@ print("Random trajectory context ".ljust(50), context)
 
 state = torch.Tensor(np.append(observation, context))
 print("Initial state".ljust(50), state)
+
+done = False
+timestep = 0
+
+while not done and timestep <= obsvail.trajectory_length - 2:
+    # used only as a metric for performance
+    episode_reward = 0
+    action = obsvail.off_policy_algorithm.get_action(state).detach()
+    observation, reward, done, _ = obsvail.env.step(np.array(action), project=False)
+    observation = get_policy_observation(observation)
+    sample = dict(state=observation, action=action, reward=reward, is_absorbing=False)
+    policy_trajectory.append(sample)
+
+    state = torch.Tensor(np.append(observation, context))
+    episode_reward += reward
+    timestep += 1
+
+# Wrap policy trajectory with absorbing state and store in replay buffer
+policy_trajectory = {"trajectory": policy_trajectory, "context": context}
+obsvail._wrap_trajectories([policy_trajectory])
+obsvail.replay_buffer.add(policy_trajectory)
+
+replay_buffer_sample = obsvail.replay_buffer.sample(batch_size=1)
+sampled_policy_trajectory_context = replay_buffer_sample["context"]
+sampled_policy_trajectory = replay_buffer_sample["trajectory"]
+print_heading("Sampled policy trajectory details")
+print("Trajectory Length ".ljust(50), len(sampled_policy_trajectory))
+print("Abosrbing indicator for 1st state".ljust(50), sampled_policy_trajectory[0]["is_absorbing"])
+print("Abosrbing indicator for last state".ljust(50), sampled_policy_trajectory[-1]["is_absorbing"])
+print("Trajectory context".ljust(50), sampled_policy_trajectory_context)
