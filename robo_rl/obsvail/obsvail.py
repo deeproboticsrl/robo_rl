@@ -87,9 +87,9 @@ class ObsVAIL:
             done = False
             timestep = 0
 
+            episode_reward = 0
             while not done and timestep <= self.trajectory_length - 2:
                 # used only as a metric for performance
-                episode_reward = 0
                 action = self.off_policy_algorithm.get_action(state).detach()
                 observation, reward, done, _ = self.env.step(np.array(action), project=False)
                 observation = get_policy_observation(observation)
@@ -105,36 +105,12 @@ class ObsVAIL:
             self._wrap_trajectories([policy_trajectory])
             self.replay_buffer.add(policy_trajectory)
 
-            end_trjectory_bool = False
-            while end_trjectory_bool:
-                """In each trajectory
-                First sample an expert trajectory,then an initial state from it.
-                Set this state forcefully in env. How???
-                Then run trajectory to match expert trajectory length.
-                For each trajectory generated, will need to store start time in replay buffer too.
-                Should we pad with a startsourcing state?
-                Also if env done occurs then pad with absorbing state.
-                
-                2 absorbing states - Good expert padding 
-                and environment termination badding
-                """
+            self.writer.add_scalar("Episode reward", episode_reward, global_step=iteration)
 
-                # for i in len(trajectory):
-                """why this for loop"""
-                # TODO sample mini batches from replay buffer and expert buffer
-                """How to have mini batches at same format.
-                 Might have to sample 1 at a time only
-                """
-                # TODO Calculate loss for discriminator using above sample and update it
-                """ In VAIL's case will need to add mutual info terms too
-                """
+            # TODO update D E beta and pi
 
-            # for i in len(trajectory):
-            # TODO sample mini batches from replay buffer
-            # TODO Calculate reward for policy using above sample and discriminator
-            # TODO Update policy using DDPG + TD3 and the batch sampled above
-
-        pass
+            # TODO save
+            self.current_iteration += 1
 
     def _wrap_trajectories(self, trajectories, add_absorbing=False):
         """Wrap trajectories with absorbing state transition.

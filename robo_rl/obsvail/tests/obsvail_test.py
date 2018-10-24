@@ -115,10 +115,10 @@ print("Initial state".ljust(50), state)
 
 done = False
 timestep = 0
+episode_reward = 0
 
 while not done and timestep <= obsvail.trajectory_length - 2:
     # used only as a metric for performance
-    episode_reward = 0
     action = obsvail.off_policy_algorithm.get_action(state).detach()
     observation, reward, done, _ = obsvail.env.step(np.array(action), project=False)
     observation = get_policy_observation(observation)
@@ -142,3 +142,4 @@ print("Trajectory Length ".ljust(50), len(sampled_policy_trajectory))
 print("Abosrbing indicator for 1st state".ljust(50), sampled_policy_trajectory[0]["is_absorbing"])
 print("Abosrbing indicator for last state".ljust(50), sampled_policy_trajectory[-1]["is_absorbing"])
 print("Trajectory context".ljust(50), sampled_policy_trajectory_context)
+print("Episode Reward".ljust(50), episode_reward)
