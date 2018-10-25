@@ -17,9 +17,14 @@ class TrajectoryBuffer(Buffer):
             raise ValueError('Sampling batch size greater than buffer size')
 
         trajectory_indices = np.random.randint(0, len(self), batch_size)
-        return [{"context": self.buffer[trajectory_index]["context"],
-                 "transition": self.buffer[trajectory_index]["trajectory"][timestep]}
-                for trajectory_index in trajectory_indices]
+
+        batch = []
+        for trajectory_index in trajectory_indices:
+            transition = self.buffer[trajectory_index]["trajectory"][timestep]
+            transition["context"] = self.buffer[trajectory_index]["context"]
+            batch.append(transition)
+
+        return batch
 
     def add_from_file(self, expert_file_path):
         with open(expert_file_path, "rb") as expert_file:

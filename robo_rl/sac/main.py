@@ -10,6 +10,7 @@ from tensorboardX import SummaryWriter
 from robo_rl.common.utils import gym_torchify
 from robo_rl.sac import get_sac_parser
 
+optimizer = Adam
 
 parser = get_sac_parser()
 parser.add_argument('--env_name', default="Reacher-v2")
@@ -36,10 +37,15 @@ writer = SummaryWriter(log_dir=logdir)
 
 squasher = SigmoidSquasher()
 
-sac = SAC(action_dim=action_dim, state_dim=state_dim, hidden_dim=hidden_dim, discount_factor=args.discount_factor,
-          writer=writer, scale_reward=args.scale_reward, reparam=args.reparam, deterministic=args.deterministic,
-          target_update_interval=args.target_update_interval, lr=args.lr, soft_update_tau=args.soft_update_tau,
-          td3_update_interval=args.td3_update_interval, squasher=squasher, weight_decay=args.weight_decay)
+sac = SAC(action_dim=action_dim, state_dim=state_dim, hidden_dim=hidden_dim,
+          discount_factor=args.discount_factor, optimizer=optimizer, policy_lr=args.policy_lr, critic_lr=args.critic_lr,
+          value_lr=args.value_lr, writer=writer, scale_reward=args.scale_reward, reparam=args.reparam,
+          target_update_interval=args.target_update_interval, soft_update_tau=args.soft_update_tau,
+          td3_update_interval=args.td3_update_interval, squasher=squasher, policy_weight_decay=args.policy_weight_decay,
+          critic_weight_decay=args.critic_weight_decay, value_weight_decay=args.value_weight_decay,
+          grad_clip=args.grad_clip, loss_clip=args.loss_clip, clip_val_grad=args.clip_val_grad,
+          deterministic=args.deterministic, clip_val_loss=args.clip_val_loss, log_std_min=args.log_std_min,
+          log_std_max=args.log_std_max)
 
 buffer = Buffer(capacity=args.buffer_capacity)
 rewards = []

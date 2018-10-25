@@ -2,7 +2,6 @@ import argparse
 
 parser = argparse.ArgumentParser(description='GAIL using observations only')
 parser.add_argument('--env_seed', type=int, default=0, help="environment seed")
-parser.add_argument('--weight_decay', type=float, default=0, help="regularisation constant for network weights")
 parser.add_argument('--grad_clip', type=bool, default=False, help="Whether to clip gradients in each update")
 parser.add_argument('--loss_clip', type=bool, default=False, help="Whether to clip losses in each update")
 parser.add_argument('--clip_val_loss', type=float, default=1000, help="Max value(absolute) for losses when clipping")
@@ -35,10 +34,9 @@ parser.add_argument('--target_update_interval', type=int, default=1,
 parser.add_argument('--td3_update_interval', type=int, default=1,
                     help="used in case of delayed update for policy")
 
-parser.add_argument('--replay_buffer_capacity', type=int, default=1000000, help='buffer capacity')
-parser.add_argument('--expert_buffer_capacity', type=int, default=15000, help='buffer capacity')
-parser.add_argument('--sample_batch_size', type=int, default=32, help='number of samples from replay buffer')
-parser.add_argument('--updates_per_step', type=int, default=1, help='updates per step')
+parser.add_argument('--replay_buffer_capacity', type=int, default=1000, help='buffer capacity')
+parser.add_argument('--expert_buffer_capacity', type=int, default=120, help='buffer capacity')
+parser.add_argument('--batch_size', type=int, default=16, help='number of samples from buffer used for 1 update')
 
 parser.add_argument('--num_networks_discriminator', type=int, default=10,
                     help='number of intervals in Phase Functional discriminator')
@@ -49,6 +47,20 @@ parser.add_argument('--discriminator_lr', type=float, default=0.0003, help="lear
 parser.add_argument('--encoder_lr', type=float, default=0.0003, help="learning rate for encoder")
 
 parser.add_argument('--beta_init', type=float, default=0.00001, help='initial value for beta')
+
+parser.add_argument('--encoder_weight_decay', type=float, default=0.01,
+                    help="L2 regularisation constant for encoder weights")
+parser.add_argument('--discriminator_weight_decay', type=float, default=0,
+                    help="L2 regularisation constant for discriminator weights")
+parser.add_argument('--policy_weight_decay', type=float, default=0,
+                    help="L2 regularisation constant for policy weights")
+parser.add_argument('--value_weight_decay', type=float, default=0,
+                    help="L2 regularisation constant for value weights")
+parser.add_argument('--critic_weight_decay', type=float, default=0,
+                    help="L2 regularisation constant for critic weights")
+
+parser.add_argument('--use_rl_reward', type=bool, default=False,
+                    help="Whether to use rl reward in addition to discriminator's reward")
 
 
 def get_obsvail_parser():
@@ -64,9 +76,8 @@ def get_logfile_name(args):
         logfile += "_no_reparam"
 
     logfile += f"_reward_scale={args.scale_reward}_tau={args.soft_update_tau}"
-    logfile += f"_samples={args.sample_batch_size}_discount_factor={args.discount_factor}"
-    logfile += f"_td3={args.td3_update_interval}"
-    logfile += f"_updates={args.updates_per_step}_num_iterations={args.num_iterations}"
+    logfile += f"_samples={args.batch_size}_discount_factor={args.discount_factor}"
+    logfile += f"_td3={args.td3_update_interval}_num_iterations={args.num_iterations}"
     logfile += f"_log_std_min={args.log_std_min}_max={args.log_std_max}_seed={args.env_seed}"
     logfile += f"_LR_policy_{args.policy_lr}_critic_{args.critic_lr}_value_{args.value_lr}"
 

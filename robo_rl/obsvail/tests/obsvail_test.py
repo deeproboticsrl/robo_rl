@@ -5,8 +5,7 @@ import torch
 import torch.nn.functional as torchfunc
 from osim.env import ProstheticsEnv
 from pros_ai import get_policy_observation, get_expert_observation
-from robo_rl.common import LinearPFDiscriminator, Buffer, LinearGaussianNetwork, no_activation, TrajectoryBuffer, \
-    print_heading
+from robo_rl.common import LinearPFDiscriminator, no_activation, LinearGaussianEncoder, print_heading
 from robo_rl.obsvail import ObsVAIL
 from robo_rl.obsvail import get_obsvail_parser, get_logfile_name
 from robo_rl.sac import SAC, SigmoidSquasher
@@ -51,13 +50,11 @@ sac = SAC(action_dim=action_dim, state_dim=policy_state_dim + context_dim, hidde
           discount_factor=args.discount_factor, optimizer=optimizer, policy_lr=args.policy_lr, critic_lr=args.critic_lr,
           value_lr=args.value_lr, writer=writer, scale_reward=args.scale_reward, reparam=args.reparam,
           target_update_interval=args.target_update_interval, soft_update_tau=args.soft_update_tau,
-          td3_update_interval=args.td3_update_interval, squasher=squasher, weight_decay=args.weight_decay,
+          td3_update_interval=args.td3_update_interval, squasher=squasher, policy_weight_decay=args.policy_weight_decay,
+          critic_weight_decay=args.critic_weight_decay, value_weight_decay=args.value_weight_decay,
           grad_clip=args.grad_clip, loss_clip=args.loss_clip, clip_val_grad=args.clip_val_grad,
           deterministic=args.deterministic, clip_val_loss=args.clip_val_loss, log_std_min=args.log_std_min,
           log_std_max=args.log_std_max)
-
-buffer = Buffer(capacity=args.replay_buffer_capacity)
-expert_buffer = TrajectoryBuffer(capacity=args.expert_buffer_capacity)
 
 expert_file_path = "../experts/sampled_experts.obs"
 
@@ -76,8 +73,8 @@ encoder_layer_sizes = [expert_state_dim]
 encoder_hidden_dim = [int(expert_state_dim / 1.57), int(expert_state_dim / 2), int(expert_state_dim / 2.35)]
 encoder_layer_sizes.extend(encoder_hidden_dim)
 encoder_layer_sizes.append(latent_z_dim)
-encoder = LinearGaussianNetwork(layers_size=encoder_layer_sizes, final_layer_function=no_activation,
-                                activation_function=torchfunc.relu, is_layer_norm=False)
+encoder = LinearGaussianEncoder(layers_size=encoder_layer_sizes, final_layer_function=no_activation,
+                                activation_function=torchfunc.relu)
 
 # TODO get from argparse lr decay and steps
 obsvail = ObsVAIL(env=env, expert_file_path=expert_file_path, discriminator=discriminator, off_policy_algorithm=sac,
@@ -85,8 +82,10 @@ obsvail = ObsVAIL(env=env, expert_file_path=expert_file_path, discriminator=disc
                   absorbing_state_dim=discriminator_input_dim, writer=writer, beta_lr=args.beta_lr,
                   discriminator_lr=args.discriminator_lr, encoder_lr=args.encoder_lr, beta_init=args.beta_init,
                   learning_rate_decay=22, learning_rate_decay_training_steps=22, optimizer=optimizer,
-                  weight_decay=args.weight_decay, grad_clip=args.grad_clip, loss_clip=args.loss_clip,
-                  clip_val_grad=args.clip_val_grad, clip_val_loss=args.clip_val_loss)
+                  discriminator_weight_decay=args.discriminator_weight_decay,
+                  encoder_weight_decay=args.encoder_weight_decay,
+                  grad_clip=args.grad_clip, loss_clip=args.loss_clip,
+                  clip_val_grad=args.clip_val_grad, clip_val_loss=args.clip_val_loss, batch_size=args.batch_size)
 
 # Test expert buffer. Size and wrapping
 print_heading("Trajectory Length")
@@ -98,9 +97,9 @@ print(len(obsvail.expert_buffer))
 expert_trajectory = obsvail.expert_buffer.sample(batch_size=1)["trajectory"]
 print_heading("Sampled expert trajectory details")
 print("Trajectory Length ".ljust(50), len(expert_trajectory))
-print("Abosrbing indicator for 1st state".ljust(50), expert_trajectory[0]["is_absorbing"])
-print("Abosrbing indicator for last state".ljust(50), expert_trajectory[-1]["is_absorbing"])
-print("Abosrbing indicator for 2nd last state".ljust(50), expert_trajectory[-2]["is_absorbing"])
+print("Absorbing indicator for 1st state".ljust(50), expert_trajectory[0]["is_absorbing"])
+print("Absorbing indicator for last state".ljust(50), expert_trajectory[-1]["is_absorbing"])
+print("Absorbing indicator for 2nd last state".ljust(50), expert_trajectory[-2]["is_absorbing"])
 
 print_heading("SAC episode sampling")
 
@@ -139,7 +138,32 @@ sampled_policy_trajectory_context = replay_buffer_sample["context"]
 sampled_policy_trajectory = replay_buffer_sample["trajectory"]
 print_heading("Sampled policy trajectory details")
 print("Trajectory Length ".ljust(50), len(sampled_policy_trajectory))
-print("Abosrbing indicator for 1st state".ljust(50), sampled_policy_trajectory[0]["is_absorbing"])
-print("Abosrbing indicator for last state".ljust(50), sampled_policy_trajectory[-1]["is_absorbing"])
+print("Absorbing indicator for 1st state".ljust(50), sampled_policy_trajectory[0]["is_absorbing"])
+print("Absorbing indicator for last state".ljust(50), sampled_policy_trajectory[-1]["is_absorbing"])
 print("Trajectory context".ljust(50), sampled_policy_trajectory_context)
 print("Episode Reward".ljust(50), episode_reward)
+
+""" For each timestep, sample a mini-batch from both expert and replay buffer.
+Use it to update discriminator, encoder, policy, and beta
+"""
+timestep = 0
+phase = min(1.0, timestep / (obsvail.trajectory_length - 2))
+
+""" Expert observations are dictionary containing state, context and absorbing state indicator
+Replay observations additionally have action and RL reward from the environment
+"""
+expert_batch = obsvail.expert_buffer.sample_timestep(batch_size=1, timestep=timestep)
+replay_batch = obsvail.replay_buffer.sample_timestep(batch_size=1, timestep=timestep)
+
+# Encode the states
+for i in range(len(expert_batch)):
+    if not expert_batch[i]["is_absorbing"]:
+        expert_batch[i]["encoded_state"] = obsvail.encoder.sample(torch.Tensor(replay_batch[i]["state"][:, 0]))
+    if not replay_batch[i]["is_absorbing"]:
+        replay_batch[i]["encoded_state"] = obsvail.encoder.sample(torch.Tensor(replay_batch[i]["state"][:, 0]))
+
+print_heading("Encoded states")
+print("Expert encoded state".ljust(30), expert_batch[0]["encoded_state"])
+print("Replay encoded state".ljust(30), replay_batch[0]["encoded_state"])
+print("Encoded state dimensions expert".ljust(30), expert_batch[0]["encoded_state"].shape)
+print("Encoded state dimensions replay".ljust(30), replay_batch[0]["encoded_state"].shape)

@@ -7,3 +7,4 @@ from robo_rl.common.networks.discriminator import LinearDiscriminator, LinearPFD
 from robo_rl.common.networks.vae import LinearVAE
 from robo_rl.common.utils.nn_utils import xavier_initialisation, soft_update, hard_update, no_activation, None_grad
 from robo_rl.common.utils.utils import print_heading, heading_decorator, gym_torchify
+from robo_rl.common.networks.linear_encoder import LinearGaussianEncoder

@@ -6,7 +6,14 @@ parser.add_argument('--soft_update_tau', type=float, default=0.005, help="target
 parser.add_argument('--policy_lr', type=float, default=0.0003, help="learning rate")
 parser.add_argument('--value_lr', type=float, default=0.0003, help="learning rate")
 parser.add_argument('--critic_lr', type=float, default=0.0003, help="learning rate")
-parser.add_argument('--weight_decay', type=float, default=0, help="regularisation constant for network weights")
+
+parser.add_argument('--policy_weight_decay', type=float, default=0,
+                    help="L2 regularisation constant for policy weights")
+parser.add_argument('--value_weight_decay', type=float, default=0,
+                    help="L2 regularisation constant for value weights")
+parser.add_argument('--critic_weight_decay', type=float, default=0,
+                    help="L2 regularisation constant for critic weights")
+
 parser.add_argument('--discount_factor', type=float, default=0.99, help='discount factor gamma')
 parser.add_argument('--scale_reward', type=float, default=10000,
                     help="reward scaling humannoid_v1=20, humnanoid_rllab=10, other mujoco=5")

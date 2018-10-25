@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as torchfunc
 from osim.env import ProstheticsEnv
 from pros_ai import get_policy_observation, get_expert_observation
-from robo_rl.common import LinearPFDiscriminator, Buffer, LinearGaussianNetwork, no_activation, TrajectoryBuffer
+from robo_rl.common import LinearPFDiscriminator, no_activation, LinearGaussianEncoder
 from robo_rl.obsvail import ObsVAIL
 from robo_rl.obsvail import get_obsvail_parser, get_logfile_name
 from robo_rl.sac import SAC, SigmoidSquasher
@@ -29,8 +29,10 @@ action_dim = env.action_space.shape[0]
 """This is done to allow having different observations for policy and discriminator
 """
 policy_state_dim = get_policy_observation(observation).shape[0]
+
 # TODO make it automatic
 context_dim = 2
+
 # According to VAIL
 sac_hidden_dim = [1024, 512]
 
@@ -50,13 +52,11 @@ sac = SAC(action_dim=action_dim, state_dim=policy_state_dim + context_dim, hidde
           discount_factor=args.discount_factor, optimizer=optimizer, policy_lr=args.policy_lr, critic_lr=args.critic_lr,
           value_lr=args.value_lr, writer=writer, scale_reward=args.scale_reward, reparam=args.reparam,
           target_update_interval=args.target_update_interval, soft_update_tau=args.soft_update_tau,
-          td3_update_interval=args.td3_update_interval, squasher=squasher, weight_decay=args.weight_decay,
+          td3_update_interval=args.td3_update_interval, squasher=squasher, policy_weight_decay=args.policy_weight_decay,
+          critic_weight_decay=args.critic_weight_decay, value_weight_decay=args.value_weight_decay,
           grad_clip=args.grad_clip, loss_clip=args.loss_clip, clip_val_grad=args.clip_val_grad,
           deterministic=args.deterministic, clip_val_loss=args.clip_val_loss, log_std_min=args.log_std_min,
           log_std_max=args.log_std_max)
-
-buffer = Buffer(capacity=args.replay_buffer_capacity)
-expert_buffer = TrajectoryBuffer(capacity=args.expert_buffer_capacity)
 
 expert_file_path = "./experts/sampled_experts.obs"
 
@@ -75,21 +75,21 @@ encoder_layer_sizes = [expert_state_dim]
 encoder_hidden_dim = [int(expert_state_dim / 1.57), int(expert_state_dim / 2), int(expert_state_dim / 2.35)]
 encoder_layer_sizes.extend(encoder_hidden_dim)
 encoder_layer_sizes.append(latent_z_dim)
-encoder = LinearGaussianNetwork(layers_size=encoder_layer_sizes, final_layer_function=no_activation,
-                                activation_function=torchfunc.relu, is_layer_norm=False)
+encoder = LinearGaussianEncoder(layers_size=encoder_layer_sizes, final_layer_function=no_activation,
+                                activation_function=torchfunc.relu)
 
 # TODO get from argparse lr decay and steps
 obsvail = ObsVAIL(env=env, expert_file_path=expert_file_path, discriminator=discriminator, off_policy_algorithm=sac,
-                  encoder=encoder, replay_buffer_capacity=args.replay_buffer_capacity,context_dim=context_dim,
+                  encoder=encoder, replay_buffer_capacity=args.replay_buffer_capacity, context_dim=context_dim,
                   absorbing_state_dim=discriminator_input_dim, writer=writer, beta_lr=args.beta_lr,
                   discriminator_lr=args.discriminator_lr, encoder_lr=args.encoder_lr, beta_init=args.beta_init,
                   learning_rate_decay=22, learning_rate_decay_training_steps=22, optimizer=optimizer,
-                  weight_decay=args.weight_decay, grad_clip=args.grad_clip, loss_clip=args.loss_clip,
-                  clip_val_grad=args.clip_val_grad, clip_val_loss=args.clip_val_loss)
+                  discriminator_weight_decay=args.discriminator_weight_decay,
+                  encoder_weight_decay=args.encoder_weight_decay,
+                  grad_clip=args.grad_clip, loss_clip=args.loss_clip,
+                  clip_val_grad=args.clip_val_grad, clip_val_loss=args.clip_val_loss, batch_size=args.batch_size)
 
 obsvail.train(num_iterations=args.num_iterations, save_iter=args.save_iter)
-
-# TODO Gradient clipping in actor net
 
 # TODO For SAC use reparam trick with normalising flow(??)
 
