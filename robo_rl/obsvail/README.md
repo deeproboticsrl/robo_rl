@@ -28,3 +28,4 @@
 
 ## Cloud implementation
 1. [ Reinforcement Learning through Asynchronous Advantage Actor-Critic on a GPU](https://github.com/NVlabs/GA3C)
+2.[CPU GPU speed up analysis](http://on-demand.gputechconf.com/gtc/2018/presentation/s8272-multi-gpu-accelerated-methods-in-deep-reinforcement-learning.pdf)
