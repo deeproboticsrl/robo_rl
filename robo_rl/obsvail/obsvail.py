@@ -1,10 +1,11 @@
+import os
 import pickle
 
 import numpy as np
 import torch
 import torch.autograd as autograd
 from pros_ai import get_policy_observation, get_expert_observation
-from robo_rl.common import TrajectoryBuffer, xavier_initialisation, None_grad
+from robo_rl.common import TrajectoryBuffer, xavier_initialisation, None_grad, print_heading, heading_decorator
 from torch.distributions import Normal, kl_divergence
 
 
@@ -80,8 +81,9 @@ class ObsVAIL:
         self.encoder_optimizer = optimizer(self.encoder.parameters(), lr=self.encoder_lr,
                                            weight_decay=self.encoder_weight_decay)
         self.policy_update_count = 0
+        self.max_reward = -np.inf
 
-    def train(self, save_iter, num_iterations=1000):
+    def train(self, save_iter, modeldir, attributesdir, bufferdir, logfile, num_iterations=1000):
 
         for iteration in range(self.current_iteration, self.current_iteration + num_iterations + 1):
 
@@ -264,8 +266,19 @@ class ObsVAIL:
                     self.policy_update_count += 1
                     self.off_policy_algorithm.policy_update(batch=batch, update_number=self.policy_update_count)
 
+            if episode_reward > self.max_reward:
+                self.max_reward = episode_reward
+                # save current best model
+                print(f"\nNew best model with reward {self.max_reward}")
+                self.save_model(all_nets_path=modeldir + logfile + "/", env_name="ProstheticsEnv", info="best",
+                                attributes_path=attributesdir + logfile + "/")
 
-            # TODO save
+            if iteration % save_iter == 0:
+                print(f"\nSaving periodically - iteration {iteration}")
+                self.save_model(all_nets_path=modeldir + logfile + "/", env_name="ProstheticsEnv", info="best",
+                                attributes_path=attributesdir + logfile + "/")
+                self.replay_buffer.save_buffer(path=bufferdir + logfile + "/", info="ProstheticsEnv")
+
             self.current_iteration += 1
 
     def _wrap_trajectories(self, trajectories, add_absorbing=False):
@@ -292,3 +305,51 @@ class ObsVAIL:
             return {"input": torch.cat([transition["encoded_state"],
                                         torch.Tensor(context),
                                         torch.Tensor([0])]), "phase": phase}
+
+    def save_model(self, env_name, attributes_path=None, all_nets_path=None, discriminator_path=None, encoder_path=None,
+                   actor_path=None, critic_path=None, value_path=None, info="none"):
+        self.off_policy_algorithm.save_model(env_name=env_name, all_nets_path=all_nets_path, actor_path=actor_path,
+                                             critic_path=critic_path, value_path=value_path, info=info)
+        if all_nets_path is not None:
+            discriminator_path = all_nets_path
+            encoder_path = all_nets_path
+
+        if discriminator_path is None:
+            discriminator_path = f'model/{env_name}/'
+        os.makedirs(discriminator_path, exist_ok=True)
+
+        if encoder_path is None:
+            encoder_path = f'model/{env_name}/'
+        os.makedirs(encoder_path, exist_ok=True)
+
+        if attributes_path is None:
+            attributes_path = f"attributes/{env_name}"
+
+        print_heading("Saving discriminator and encoder network parameters")
+        torch.save(self.discriminator.state_dict(), discriminator_path + f"actor_{info}.pt")
+        torch.save(self.encoder.state_dict(), encoder_path + f"value_{info}.pt")
+
+        with open(attributes_path) as f:
+            pickle.dump({"current_iteration": self.current_iteration, "beta": self.beta,
+                         "policy_update_count": self.policy_update_count, "max_reward": self.max_reward}, f)
+        heading_decorator(bottom=True, print_req=True)
+
+    def load_model(self, attributes_path, discriminator_path=None, encoder_path=None, actor_path=None, critic_path=None,
+                   value_path=None):
+        self.off_policy_algorithm.load_model(actor_path=actor_path, critic_path=critic_path, value_path=value_path)
+        print_heading("Loading models from paths: \n discriminator:{} \n encoder:{} \n attributes:{}"
+                      .format(discriminator_path, encoder_path, attributes_path))
+        if discriminator_path is not None:
+            self.discriminator.load_state_dict(torch.load(discriminator_path))
+        if encoder_path is not None:
+            self.encoder.load_state_dict(torch.load(encoder_path))
+
+        with open(attributes_path) as f:
+            attributes = pickle.load(f)
+
+        self.current_iteration = attributes["current_iteration"]
+        self.beta = attributes["beta"]
+        self.policy_update_count = attributes["policy_update_count"]
+        self.max_reward = attributes["max_reward"]
+
+        print('loading done')

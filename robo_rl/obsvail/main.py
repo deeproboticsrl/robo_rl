@@ -40,6 +40,7 @@ logdir = "./tensorboard_log/"
 # logdir += "dummy"
 modeldir = f"./model/ProstheticsEnv/"
 bufferdir = f"./buffer/ProstheticsEnv/"
+attributesdir = f"./attributes/ProstheticsEnv/"
 
 logfile = get_logfile_name(args)
 
@@ -89,7 +90,8 @@ obsvail = ObsVAIL(env=env, expert_file_path=expert_file_path, discriminator=disc
                   grad_clip=args.grad_clip, loss_clip=args.loss_clip,
                   clip_val_grad=args.clip_val_grad, clip_val_loss=args.clip_val_loss, batch_size=args.batch_size)
 
-obsvail.train(num_iterations=args.num_iterations, save_iter=args.save_iter)
+obsvail.train(num_iterations=args.num_iterations, save_iter=args.save_iter, modeldir=modeldir,
+              attributesdir=attributesdir, bufferdir=bufferdir, logfile=logfile)
 
 # TODO For SAC use reparam trick with normalising flow(??)
 
