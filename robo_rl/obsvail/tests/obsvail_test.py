@@ -2,14 +2,16 @@ import os
 
 import numpy as np
 import torch
+import torch.autograd as autograd
 import torch.nn.functional as torchfunc
 from osim.env import ProstheticsEnv
 from pros_ai import get_policy_observation, get_expert_observation
-from robo_rl.common import LinearPFDiscriminator, no_activation, LinearGaussianEncoder, print_heading
+from robo_rl.common import LinearPFDiscriminator, no_activation, LinearGaussianEncoder, print_heading, None_grad
 from robo_rl.obsvail import ObsVAIL
 from robo_rl.obsvail import get_obsvail_parser, get_logfile_name
 from robo_rl.sac import SAC, SigmoidSquasher
 from tensorboardX import SummaryWriter
+from torch.distributions import Normal, kl_divergence
 from torch.optim import Adam
 
 optimizer = Adam
@@ -116,7 +118,8 @@ done = False
 timestep = 0
 episode_reward = 0
 
-while not done and timestep <= obsvail.trajectory_length - 2:
+while not done and timestep <= 2:
+    # while not done and timestep <= obsvail.trajectory_length - 2:
     # used only as a metric for performance
     action = obsvail.off_policy_algorithm.get_action(state).detach()
     observation, reward, done, _ = obsvail.env.step(np.array(action), project=False)
@@ -158,7 +161,7 @@ replay_batch = obsvail.replay_buffer.sample_timestep(batch_size=1, timestep=time
 # Encode the states
 for i in range(len(expert_batch)):
     if not expert_batch[i]["is_absorbing"]:
-        expert_batch[i]["encoded_state"] = obsvail.encoder.sample(torch.Tensor(replay_batch[i]["state"][:, 0]))
+        expert_batch[i]["encoded_state"] = obsvail.encoder.sample(torch.Tensor(expert_batch[i]["state"][:, 0]))
     if not replay_batch[i]["is_absorbing"]:
         replay_batch[i]["encoded_state"] = obsvail.encoder.sample(torch.Tensor(replay_batch[i]["state"][:, 0]))
 
@@ -167,3 +170,76 @@ print("Expert encoded state".ljust(30), expert_batch[0]["encoded_state"])
 print("Replay encoded state".ljust(30), replay_batch[0]["encoded_state"])
 print("Encoded state dimensions expert".ljust(30), expert_batch[0]["encoded_state"].shape)
 print("Encoded state dimensions replay".ljust(30), replay_batch[0]["encoded_state"].shape)
+
+# Test kl divergence backprop update on encoder
+print_heading("KL divergence update check")
+
+z, mean, std, _, _ = obsvail.encoder.sample(torch.Tensor(expert_batch[0]["state"][:, 0]), info=True)
+print("mean before update".ljust(30), mean)
+print("std before update".ljust(30), std)
+
+num_updates = 5
+encoder_prior = Normal(0, 1)
+for _ in range(num_updates):
+    encoder_distribution = Normal(mean, std)
+    # Sum along individual dimensions gives KL div for multivariate since sigma is diagonal matrix
+    encoder_kl_divergence = torch.sum(kl_divergence(encoder_distribution, encoder_prior))
+
+    obsvail.encoder_optimizer.zero_grad()
+    encoder_kl_divergence.backward()
+    # print(encoder.linear_layers[0].weight.grad)
+    obsvail.encoder_optimizer.step()
+
+    z, mean, std, _, _ = obsvail.encoder.sample(torch.Tensor(expert_batch[0]["state"][:, 0]), info=True)
+
+print(f"mean after {num_updates} updates".ljust(30), mean)
+print(f"std after {num_updates} updates".ljust(30), std)
+
+# Calculate discriminator output
+for i in range(len(expert_batch)):
+    expert_discriminator_input = obsvail._prepare_discriminator_input(transition=expert_batch[i],
+                                                                      context=context, phase=phase)
+    replay_discriminator_input = obsvail._prepare_discriminator_input(transition=replay_batch[i],
+                                                                      context=context, phase=phase)
+
+    # discriminator forward
+    expert_batch[i]["discriminator_output"] = obsvail.discriminator(expert_discriminator_input)
+    replay_batch[i]["discriminator_output"] = obsvail.discriminator(replay_discriminator_input)
+
+    print_heading("Discriminator input and output")
+    print("Expert discriminator input".ljust(30), expert_discriminator_input)
+    print("Replay discriminator input".ljust(30), replay_discriminator_input)
+    print("Expert discriminator output".ljust(30), expert_batch[i]["discriminator_output"])
+    print("Replay discriminator output".ljust(30), replay_batch[i]["discriminator_output"])
+
+    gradients = autograd.grad(outputs=expert_batch[i]["discriminator_output"],
+                              inputs=expert_discriminator_input["input"],
+                              create_graph=True, retain_graph=True, only_inputs=True)[0]
+    gradient_penalty = (gradients.norm() - 1)**2
+    print(gradients)
+    print(gradient_penalty)
+    None_grad(obsvail.discriminator_optimizer)
+    gradient_penalty.backward(retain_graph=True)
+    obsvail.discriminator_optimizer.step()
+
+    for _ in range(num_updates):
+        # discriminator forward
+        expert_batch[i]["discriminator_output"] = obsvail.discriminator(expert_discriminator_input)
+        replay_batch[i]["discriminator_output"] = obsvail.discriminator(replay_discriminator_input)
+        gradients = autograd.grad(outputs=expert_batch[i]["discriminator_output"],
+                                  inputs=expert_discriminator_input["input"],
+                                  create_graph=True, retain_graph=True, only_inputs=True)[0]
+        gradient_penalty = (gradients.norm() - 1) ** 2
+        None_grad(obsvail.discriminator_optimizer)
+        gradient_penalty.backward(retain_graph=True)
+        obsvail.discriminator_optimizer.step()
+
+    print_heading(f"Discriminator input and output after {num_updates} gradient penalty updates")
+    print("Expert discriminator input".ljust(30), expert_discriminator_input)
+    print("Replay discriminator input".ljust(30), replay_discriminator_input)
+    print("Expert discriminator output".ljust(30), expert_batch[i]["discriminator_output"])
+    print("Replay discriminator output".ljust(30), replay_batch[i]["discriminator_output"])
+
+    print(gradients)
+    print(gradient_penalty)
+

@@ -43,10 +43,11 @@ class LinearPFNN(nn.Module):
         # Enforce phase in [0,1)
         phase = phase - int(phase)
 
-        # Get indices for interval endpoints
+        # Get indices for interval (in which input phase belongs) endpoints
         left_index = int(phase * self.num_networks) % self.num_networks
         right_index = (left_index + 1) % self.num_networks
 
+        # Calculate phase for interval endpoints
         left_phase = left_index / self.num_networks
         right_phase = left_phase + (1 / self.num_networks)
 

@@ -11,7 +11,7 @@ class LinearGaussianEncoder(LinearGaussianNetwork):
         self.log_std_min = log_std_min
         self.log_std_max = log_std_max
 
-    def sample(self, x):
+    def sample(self, x, info=False):
         mean, log_std = self.forward(x)
 
         log_std = torch.clamp(log_std, min=self.log_std_min, max=self.log_std_max)
@@ -20,4 +20,10 @@ class LinearGaussianEncoder(LinearGaussianNetwork):
         normal = Normal(mean, std)
         z = normal.rsample()  # reparameterization trick
 
-        return z
+        log_prob = normal.log_prob(z)
+        prob = torch.exp(log_prob)
+
+        if info:
+            return z, mean, std, log_prob, prob
+        else:
+            return z
