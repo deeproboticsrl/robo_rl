@@ -84,8 +84,8 @@ obsvail = ObsVAIL(env=env, expert_file_path=expert_file_path, discriminator=disc
                   absorbing_state_dim=discriminator_input_dim, writer=writer, beta_lr=args.beta_lr,
                   discriminator_lr=args.discriminator_lr, encoder_lr=args.encoder_lr, beta_init=args.beta_init,
                   learning_rate_decay=22, learning_rate_decay_training_steps=22, optimizer=optimizer,
-                  discriminator_weight_decay=args.discriminator_weight_decay,
-                  encoder_weight_decay=args.encoder_weight_decay,
+                  discriminator_weight_decay=args.discriminator_weight_decay, gp_lambda=args.gp_lambda,
+                  encoder_weight_decay=args.encoder_weight_decay, information_constraint=args.information_constraint,
                   grad_clip=args.grad_clip, loss_clip=args.loss_clip,
                   clip_val_grad=args.clip_val_grad, clip_val_loss=args.clip_val_loss, batch_size=args.batch_size)
 

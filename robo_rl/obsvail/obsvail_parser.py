@@ -41,6 +41,7 @@ parser.add_argument('--batch_size', type=int, default=16, help='number of sample
 parser.add_argument('--num_networks_discriminator', type=int, default=10,
                     help='number of intervals in Phase Functional discriminator')
 parser.add_argument('--information_constraint', type=float, default=0.5, help='value of bottleneck constraint')
+parser.add_argument('--gp_lambda', type=float, default=10, help='Coefficient for gradient penalties')
 
 parser.add_argument('--beta_lr', type=float, default=0.00001, help='stepsize for updating beta in vail')
 parser.add_argument('--discriminator_lr', type=float, default=0.0003, help="learning rate for discriminator")

@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.autograd as autograd
 from pros_ai import get_policy_observation, get_expert_observation
-from robo_rl.common import TrajectoryBuffer, xavier_initialisation
+from robo_rl.common import TrajectoryBuffer, xavier_initialisation, None_grad
 from torch.distributions import Normal, kl_divergence
 
 
@@ -12,7 +12,7 @@ class ObsVAIL:
 
     def __init__(self, expert_file_path, discriminator, encoder, off_policy_algorithm, env, absorbing_state_dim,
                  beta_init, optimizer, beta_lr, discriminator_lr, encoder_lr, context_dim,
-                 writer, grad_clip=0.01, loss_clip=100, batch_size=16,
+                 writer, grad_clip=0.01, loss_clip=100, batch_size=16, information_constraint=0.1, gp_lambda=10,
                  clip_val_grad=False, clip_val_loss=False, replay_buffer_capacity=100000,
                  learning_rate_decay=0.5, learning_rate_decay_training_steps=1e5,
                  discriminator_weight_decay=0.001, encoder_weight_decay=0.01
@@ -63,6 +63,9 @@ class ObsVAIL:
 
         self.beta_init = beta_init
         self.beta_lr = beta_lr
+        self.information_constraint = information_constraint
+        self.gp_lambda = gp_lambda
+
         self.discriminator_lr = discriminator_lr
         self.encoder_lr = encoder_lr
 
@@ -76,6 +79,7 @@ class ObsVAIL:
                                                  weight_decay=self.discriminator_weight_decay)
         self.encoder_optimizer = optimizer(self.encoder.parameters(), lr=self.encoder_lr,
                                            weight_decay=self.encoder_weight_decay)
+        self.policy_update_count = 0
 
     def train(self, save_iter, num_iterations=1000):
 
@@ -99,12 +103,17 @@ class ObsVAIL:
                 action = self.off_policy_algorithm.get_action(state).detach()
                 observation, reward, done, _ = self.env.step(np.array(action), project=False)
                 observation = get_policy_observation(observation)
-                sample = dict(state=observation, action=action, reward=reward, is_absorbing=False)
+                sample = dict(state=state, action=action, reward=reward, is_absorbing=False, next_state=observation,
+                              done=done)
                 policy_trajectory.append(sample)
 
                 state = torch.Tensor(np.append(observation, context))
                 episode_reward += reward
                 timestep += 1
+            policy_trajectory[-1]["done"] = True
+            non_encoded_absorbing_state = [0] * (state.size()[0] + 1)
+            non_encoded_absorbing_state[-1] = 1
+            policy_trajectory[-1]["next_state"] = non_encoded_absorbing_state
 
             # Wrap policy trajectory with absorbing state and store in replay buffer
             policy_trajectory = {"trajectory": policy_trajectory, "context": context}
@@ -126,8 +135,9 @@ class ObsVAIL:
                 expert_batch = self.expert_buffer.sample_timestep(batch_size=self.batch_size, timestep=timestep)
                 replay_batch = self.replay_buffer.sample_timestep(batch_size=self.batch_size, timestep=timestep)
 
-                log_D_sum = 0
-                log_one_minus_D_sum = 0
+                log_D_expert = []
+                log_D_replay = []
+                log_one_minus_D_replay = []
                 encoder_kl_divergence = 0
                 num_non_absorbing_states = 0
                 discriminator_gradient_penalty = 0
@@ -185,8 +195,12 @@ class ObsVAIL:
                     discriminator_gradient_penalty += expert_gradient_penalty + replay_gradient_penalty
 
                     # discriminator D is trained to output 0 for policy and 1 for expert
-                    log_D_sum += torch.log(expert_discriminator_outputs[i])
-                    log_one_minus_D_sum += torch.log(1 - replay_discriminator_outputs[i])
+                    log_D_expert.append(torch.log(expert_discriminator_outputs[i]))
+                    log_D_replay.append(torch.log(replay_discriminator_outputs[i]))
+                    log_one_minus_D_replay.append(torch.log(1 - replay_discriminator_outputs[i]))
+
+                log_D_expert_sum = torch.stack(log_D_expert).sum()
+                log_one_minus_D_replay_sum = torch.stack(log_one_minus_D_replay).sum()
 
                 # normalise encoder kl divergence
                 encoder_kl_divergence /= num_non_absorbing_states
@@ -207,9 +221,49 @@ class ObsVAIL:
                                        replay_discriminator_outputs.mean(),
                                        global_step=iteration * self.trajectory_length + timestep)
 
-                # Calculate losses and rewards
+                # Calculate losses for encoder and discriminator
+                encoder_loss = -log_D_expert_sum - log_one_minus_D_replay_sum + self.beta * (
+                        encoder_kl_divergence - self.information_constraint)
+                discriminator_loss = encoder_loss + self.gp_lambda * discriminator_gradient_penalty
 
-                # Prepare batch for off policy update
+                # Update encoder
+                self.encoder_optimizer.zero_grad()
+                encoder_loss.backward(retain_graph=True)
+                self.encoder_optimizer.step()
+
+                # Update discriminator
+                None_grad(self.discriminator_optimizer)
+                discriminator_loss.backward(retain_graph=True)
+                self.discriminator_optimizer.step()
+
+                # Update beta
+                self.beta = max(0, self.beta + self.beta_lr * (encoder_kl_divergence - self.information_constraint))
+
+                self.writer.add_scalar("Encoder loss", encoder_loss,
+                                       global_step=iteration * self.trajectory_length + timestep)
+                self.writer.add_scalar("Discriminator loss", discriminator_loss,
+                                       global_step=iteration * self.trajectory_length + timestep)
+                self.writer.add_scalar("Beta", self.beta,
+                                       global_step=iteration * self.trajectory_length + timestep)
+
+                """Prepare batch for off policy update
+                A batch is a dictionary of lists containing state, action, next_state, reward and done 
+                """
+                batch = {"state": [], "action": [], "reward": [], "done": [], "next_state": []}
+
+                for i in range(len(expert_batch)):
+                    if not replay_batch[i]["is_absorbing"]:
+                        batch["state"].append(torch.cat([replay_batch[i]["state"][:, 0], torch.Tensor(context)]))
+                        batch["action"].append(torch.Tensor(replay_batch[i]["action"]))
+                        batch["done"].append(torch.Tensor(replay_batch[i]["done"]))
+                        batch["next_state"].append(
+                            torch.cat([replay_batch[i]["next_state"][:, 0], torch.Tensor(context)]))
+                        batch["reward"].append(log_D_replay[i] - log_one_minus_D_replay[i])
+
+                if len(batch["state"]):
+                    self.policy_update_count += 1
+                    self.off_policy_algorithm.policy_update(batch=batch, update_number=self.policy_update_count)
+
 
             # TODO save
             self.current_iteration += 1

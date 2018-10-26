@@ -9,6 +9,7 @@ from robo_rl.sac import SAC, SigmoidSquasher
 from tensorboardX import SummaryWriter
 from robo_rl.common.utils import gym_torchify
 from robo_rl.sac import get_sac_parser
+from torch.optim import Adam
 
 optimizer = Adam
 
