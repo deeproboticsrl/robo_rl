@@ -25,3 +25,6 @@
 9. [IB-GAN: DISENTANGLED REPRESENTATION LEARNING WITH INFORMATION BOTTLENECK GAN](https://openreview.net/pdf?id=ryljV2A5KX)
 10. [Generative Adversarial Imitation from Observation](https://arxiv.org/pdf/1807.06158.pdf)
 11. [Closing the Sim-to-Real Loop:Adapting Simulation Randomization with Real World Experience](https://arxiv.org/pdf/1810.05687.pdf)
+
+## Cloud implementation
+1. [ Reinforcement Learning through Asynchronous Advantage Actor-Critic on a GPU](https://github.com/NVlabs/GA3C)
