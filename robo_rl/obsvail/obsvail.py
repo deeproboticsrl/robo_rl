@@ -235,7 +235,7 @@ class ObsVAIL:
 
                 # Update discriminator
                 None_grad(self.discriminator_optimizer)
-                discriminator_loss.backward(retain_graph=True)
+                discriminator_loss.backward()
                 self.discriminator_optimizer.step()
 
                 # Update beta
