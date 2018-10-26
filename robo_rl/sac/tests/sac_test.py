@@ -34,7 +34,7 @@ os.makedirs(logdir, exist_ok=True)
 writer = SummaryWriter(log_dir=logdir)
 
 sac = SAC(state_dim=state_dim, action_dim=action_dim, writer=writer, hidden_dim=hidden_dim, squasher=squasher,
-          optimizer=SGD)
+          optimizer=Adam)
 
 print_heading("Architecture of value network")
 print_network_architecture(sac.value)
@@ -152,9 +152,11 @@ print("q_2 current".ljust(25), q2_current_policy[0], q2_current_policy[1])
 print("value ".ljust(25), value[0], value[1])
 
 print_heading("Calculation of Jpi")
-policy_loss = (log_prob - min_q_value).mean()
-print("log_prob".ljust(25), log_prob[0], log_prob[1])
-print("min_q ".ljust(25), min_q_value[0], min_q_value[1])
+ipdb.set_trace()
+log_policy_target =  min_q_value - value
+policy_loss = (log_prob * (log_prob - log_policy_target).detach()).mean()
+print ('log_prob', log_prob)
+
 print("policy loss", policy_loss)
 
 print_heading("Update policy. log prob should change. Q1 Q2 with buffer actions should not")

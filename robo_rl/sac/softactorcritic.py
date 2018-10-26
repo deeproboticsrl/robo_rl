@@ -4,13 +4,15 @@ import robo_rl.common.utils.nn_utils as nn_utils
 import robo_rl.common.utils.utils as utils
 import torch
 import torch.nn as nn
+import torch.nn.functional as f
 from robo_rl.common.networks import LinearQNetwork, LinearValueNetwork
 from robo_rl.common.utils import soft_update, hard_update
 from robo_rl.sac import GaussianPolicy
 
 
-def n_critics(state_dim, action_dim, hidden_dim, num_q):
-    q_networks = nn.ModuleList([LinearQNetwork(state_dim=state_dim, action_dim=action_dim, hidden_dim=hidden_dim)
+def n_critics(state_dim, action_dim, hidden_dim, num_q, activation):
+    q_networks = nn.ModuleList([LinearQNetwork(state_dim=state_dim, action_dim=action_dim,
+                                               hidden_dim=hidden_dim, activation_function=activation)
                                 for _ in range(num_q)])
 
     return q_networks
@@ -18,11 +20,11 @@ def n_critics(state_dim, action_dim, hidden_dim, num_q):
 
 class SAC:
     def __init__(self, action_dim, state_dim, hidden_dim, writer, squasher, optimizer, discount_factor=0.99,
-                 scale_reward=3,
+                 scale_reward=3, activation=f.relu,
                  reparam=True, target_update_interval=1, lr=3e-4, soft_update_tau=0.005,
                  td3_update_interval=100, deterministic=False, weight_decay=0.001,
                  grad_clip=False, loss_clip=False, clip_val_grad=0.01, clip_val_loss=100,
-                 log_std_min=-20, log_std_max=-2):
+                 log_std_min=-20, log_std_max=2):
         self.writer = writer
         self.deterministic = deterministic
         self.squasher = squasher
@@ -44,12 +46,15 @@ class SAC:
         self.log_std_min = log_std_min
         self.log_std_max = log_std_max
 
-        self.value = LinearValueNetwork(state_dim=self.state_dim, hidden_dim=self.hidden_dim)
-        self.value_target = LinearValueNetwork(state_dim=self.state_dim, hidden_dim=self.hidden_dim)
+        self.value = LinearValueNetwork(state_dim=self.state_dim, hidden_dim=self.hidden_dim,
+                                        activation=activation)
+        self.value_target = LinearValueNetwork(state_dim=self.state_dim, hidden_dim=self.hidden_dim,
+                                               activation=activation)
+
         self.policy = GaussianPolicy(state_dim=self.state_dim, action_dim=self.action_dim, hidden_dim=self.hidden_dim,
-                                     log_std_min=self.log_std_min, log_std_max=self.log_std_max)
+                                     activation=activation,log_std_min=self.log_std_min, log_std_max=self.log_std_max)
         self.critics = n_critics(state_dim=self.state_dim, action_dim=self.action_dim, hidden_dim=self.hidden_dim,
-                                 num_q=2)
+                                 num_q=2, activation=activation)
         self.value.apply(nn_utils.xavier_initialisation)
         self.critics.apply(nn_utils.xavier_initialisation)
         self.policy.apply(nn_utils.xavier_initialisation)
@@ -59,12 +64,10 @@ class SAC:
         self.critic1_optimizer = optimizer(self.critics[0].parameters(), lr=self.lr, weight_decay=self.weight_decay)
         self.critic2_optimizer = optimizer(self.critics[1].parameters(), lr=self.lr, weight_decay=self.weight_decay)
 
-        hard_update(target=self.value_target, original=self.value)
+        hard_update(target=self.value, original=self.value_target)
 
     def policy_update(self, batch, update_number):
         mse_loss = nn.MSELoss()
-        # target_clip_min = -self.scale_reward/(1-self.discount_factor)
-        # target_clip_max = 0
 
         """batch is a dict from replay buffer"""
         state_batch = torch.stack(batch['state']).detach()
@@ -78,7 +81,6 @@ class SAC:
 
         # Q^ = scaled reward + discount_factor * exp_target_value(st+1)
         q_hat_buffer = self.scale_reward * reward_batch + (1 - done_batch) * self.discount_factor * target_value
-        # q_hat_buffer = torch.clamp(q_hat_buffer, min=target_clip_min, max=target_clip_max)
 
         # Q values for state and action taken from given batch (sampled from replay buffer)
         q1_buffer = self.critics[0](torch.cat([state_batch, action_batch], 1))
@@ -197,7 +199,7 @@ class SAC:
         torch.save(self.policy.state_dict(), actor_path + f"actor_{info}.pt")
         torch.save(self.value.state_dict(), value_path + f"value_{info}.pt")
         torch.save(self.critics.state_dict(), critic_path + f"critics_{info}.pt")
-        utils.heading_decorator(bottom=True, print_req=True)
+        # utils.heading_decorator(bottom=True, print_req=True)
 
     def load_model(self, actor_path=None, critic_path=None, value_path=None):
         utils.print_heading(

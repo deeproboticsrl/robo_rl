@@ -7,8 +7,10 @@ from robo_rl.common import Buffer
 from robo_rl.common.utils import gym_torchify, print_heading
 from robo_rl.sac import SAC, TanhSquasher
 from robo_rl.sac import get_sac_parser, get_logfile_name
+from robo_rl.sac import get_sac_parser
 from tensorboardX import SummaryWriter
 from torch.optim import Adam
+import torch.nn.functional as f
 
 parser = get_sac_parser()
 parser.add_argument('--env_name', default="FetchReach-v1", help="Should be GoalEnv")
@@ -21,13 +23,6 @@ env.distance_threshold = args.distance_threshold
 env.seed(args.env_seed)
 torch.manual_seed(args.env_seed)
 np.random.seed(args.env_seed)
-
-logdir = "./tensorboard_log/"
-# logdir += "dummy"
-modeldir = "./model/"
-bufferdir = "./buffer/"
-
-logfile = get_logfile_name(args)
 
 action_dim = env.action_space.shape[0]
 if args.goal_obs:
@@ -103,13 +98,13 @@ for cur_episode in range(1, args.num_episodes + 1):
 
     sac.writer.add_scalar("Policy linear layer 1 weight 0", sac.policy.linear_layers[0].weight[0][0], cur_episode)
     for name, param in sac.policy.named_parameters():
-        sac.writer.add_histogram("policy_" + name, param.clone().cpu().data.numpy(), cur_episode)
+        sac.writer.add_histogram("policy_" + name, param, cur_episode)
     for name, param in sac.value.named_parameters():
-        sac.writer.add_histogram("value_" + name, param.clone().cpu().data.numpy(), cur_episode)
+        sac.writer.add_histogram("value_" + name, param, cur_episode)
     for name, param in sac.critics[0].named_parameters():
-        sac.writer.add_histogram("critic1_" + name, param.clone().cpu().data.numpy(), cur_episode)
+        sac.writer.add_histogram("critic1_" + name, param, cur_episode)
     for name, param in sac.critics[1].named_parameters():
-        sac.writer.add_histogram("critic2_" + name, param.clone().cpu().data.numpy(), cur_episode)
+        sac.writer.add_histogram("critic2_" + name, param, cur_episode)
 
     # add hindsight transitions
     if args.goal_obs:
@@ -167,8 +162,7 @@ for cur_episode in range(1, args.num_episodes + 1):
                 if args.goal_obs:
                     state = observation["achieved_goal"]
                 else:
-                    state = observation["observation"]
-
+                    state = observation["achieved_goal"]
                 timestep += 1
                 if 'is_success' in info:
                     success = info['is_success']

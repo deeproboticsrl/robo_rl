@@ -2,6 +2,7 @@ import torch.nn as nn
 
 
 # xavier initialization does random operation so calling it twice on same network will yield different results
+# use apply because it has to be applied on modules' children
 def xavier_initialisation(*module):
     modules = [*module]
     for i in range(len(modules)):

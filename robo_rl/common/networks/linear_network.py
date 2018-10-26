@@ -69,7 +69,7 @@ class LinearGaussianNetwork(LinearNetwork):
         Number of hidden layers = 2 with 200 nodes in 1st layer and 300 in next layer
         Number of outputs = 3 ---- output layer has 2 units 1 for mean and other for log_std
         """
-        super().__init__(layers_size[:-1], final_layer_function, activation_function, is_layer_norm,
+        super().__init__(layers_size[:-1],final_layer_function, activation_function, is_layer_norm,
                          is_final_layer_norm=True)
         self.mean_layer = nn.Linear(layers_size[-2], layers_size[-1])
         self.log_std_layer = nn.Linear(layers_size[-2], layers_size[-1])
@@ -79,3 +79,5 @@ class LinearGaussianNetwork(LinearNetwork):
         mean = self.final_layer_function(self.mean_layer(x))
         log_std = self.final_layer_function(self.log_std_layer(x))
         return mean, log_std
+
+
