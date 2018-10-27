@@ -16,8 +16,8 @@ class ObsVAIL:
                  writer, grad_clip=0.01, loss_clip=100, batch_size=16, information_constraint=0.1, gp_lambda=10,
                  clip_val_grad=False, clip_val_loss=False, replay_buffer_capacity=100000,
                  learning_rate_decay=0.5, learning_rate_decay_training_steps=1e5,
-                 discriminator_weight_decay=0.001, encoder_weight_decay=0.01
-                 ):
+                 discriminator_weight_decay=0.001, encoder_weight_decay=0.01,
+                 reward_clip=False, clip_val_reward=1):
 
         self.discriminator = discriminator
         self.encoder = encoder
@@ -59,8 +59,10 @@ class ObsVAIL:
         self.encoder_weight_decay = encoder_weight_decay
         self.grad_clip = grad_clip
         self.loss_clip = loss_clip
+        self.reward_clip = reward_clip
         self.clip_val_grad = clip_val_grad
         self.clip_val_loss = clip_val_loss
+        self.clip_val_reward = clip_val_reward
 
         self.beta_init = beta_init
         self.beta_lr = beta_lr
@@ -83,19 +85,19 @@ class ObsVAIL:
         self.policy_update_count = 0
         self.max_reward = -np.inf
 
-    def train(self, save_iter, modeldir, attributesdir, bufferdir, logfile, num_iterations=1000):
+    def train(self, save_iter, modeldir, attributesdir, bufferdir, logfile, num_iterations=1000000):
 
         for iteration in range(self.current_iteration, self.current_iteration + num_iterations + 1):
 
             # Sample trajectory using policy
 
             policy_trajectory = []
-            observation = get_policy_observation(self.env.reset(project=False))
+            current_observation = get_policy_observation(self.env.reset(project=False))
 
             # Sample random context for the trajectory
             context = [np.random.randint(0, 1) for _ in range(self.context_dim)]
-
-            state = torch.Tensor(np.append(observation, context))
+            # indicator for absorbing state
+            state = torch.Tensor(np.append(np.append(current_observation, context), 0))
             done = False
             timestep = 0
 
@@ -105,17 +107,17 @@ class ObsVAIL:
                 action = self.off_policy_algorithm.get_action(state).detach()
                 observation, reward, done, _ = self.env.step(np.array(action), project=False)
                 observation = get_policy_observation(observation)
-                sample = dict(state=state, action=action, reward=reward, is_absorbing=False, next_state=observation,
-                              done=done)
+                sample = dict(state=current_observation, action=action, reward=reward, is_absorbing=False,
+                              next_state=observation, done=done)
                 policy_trajectory.append(sample)
 
-                state = torch.Tensor(np.append(observation, context))
+                current_observation = observation
+                state = torch.Tensor(np.append(np.append(current_observation, context), 0))
                 episode_reward += reward
                 timestep += 1
             policy_trajectory[-1]["done"] = True
-            non_encoded_absorbing_state = [0] * (state.size()[0] + 1)
-            non_encoded_absorbing_state[-1] = 1
-            policy_trajectory[-1]["next_state"] = non_encoded_absorbing_state
+            non_encoded_absorbing_state = [0] * (current_observation.shape[0])
+            policy_trajectory[-1]["next_state"] = np.array([non_encoded_absorbing_state]).T
 
             # Wrap policy trajectory with absorbing state and store in replay buffer
             policy_trajectory = {"trajectory": policy_trajectory, "context": context}
@@ -123,6 +125,9 @@ class ObsVAIL:
             self.replay_buffer.add(policy_trajectory)
 
             self.writer.add_scalar("Episode reward", episode_reward, global_step=iteration)
+
+            if len(self.replay_buffer) < self.batch_size:
+                continue
 
             """ For each timestep, sample a mini-batch from both expert and replay buffer.
             Use it to update discriminator, encoder, policy, and beta
@@ -204,8 +209,9 @@ class ObsVAIL:
                 log_D_expert_sum = torch.stack(log_D_expert).sum()
                 log_one_minus_D_replay_sum = torch.stack(log_one_minus_D_replay).sum()
 
-                # normalise encoder kl divergence
-                encoder_kl_divergence /= num_non_absorbing_states
+                if num_non_absorbing_states:
+                    # normalise encoder kl divergence
+                    encoder_kl_divergence /= num_non_absorbing_states
 
                 expert_discriminator_outputs = torch.Tensor(expert_discriminator_outputs)
                 replay_discriminator_outputs = torch.Tensor(replay_discriminator_outputs)
@@ -224,25 +230,32 @@ class ObsVAIL:
                                        global_step=iteration * self.trajectory_length + timestep)
 
                 # Calculate losses for encoder and discriminator
-                encoder_loss = -log_D_expert_sum - log_one_minus_D_replay_sum + self.beta * (
-                        encoder_kl_divergence - self.information_constraint)
-                discriminator_loss = encoder_loss + self.gp_lambda * discriminator_gradient_penalty
+                if num_non_absorbing_states:
+                    encoder_loss = -log_D_expert_sum - log_one_minus_D_replay_sum + self.beta * (
+                            encoder_kl_divergence - self.information_constraint)
+                    discriminator_loss = encoder_loss + self.gp_lambda * discriminator_gradient_penalty
+                else:
+                    discriminator_loss = -log_D_expert_sum - log_one_minus_D_replay_sum +\
+                                         self.gp_lambda * discriminator_gradient_penalty
 
                 # Update encoder
-                self.encoder_optimizer.zero_grad()
-                encoder_loss.backward(retain_graph=True)
-                self.encoder_optimizer.step()
+                if num_non_absorbing_states:
+                    self.encoder_optimizer.zero_grad()
+                    encoder_loss.backward(retain_graph=True)
+                    self.encoder_optimizer.step()
+
+                    # Update beta
+                    self.beta = max(0, self.beta + self.beta_lr * (
+                            encoder_kl_divergence - self.information_constraint)).detach()
+
+                    self.writer.add_scalar("Encoder loss", encoder_loss,
+                                           global_step=iteration * self.trajectory_length + timestep)
 
                 # Update discriminator
                 None_grad(self.discriminator_optimizer)
                 discriminator_loss.backward()
                 self.discriminator_optimizer.step()
 
-                # Update beta
-                self.beta = max(0, self.beta + self.beta_lr * (encoder_kl_divergence - self.information_constraint))
-
-                self.writer.add_scalar("Encoder loss", encoder_loss,
-                                       global_step=iteration * self.trajectory_length + timestep)
                 self.writer.add_scalar("Discriminator loss", discriminator_loss,
                                        global_step=iteration * self.trajectory_length + timestep)
                 self.writer.add_scalar("Beta", self.beta,
@@ -255,12 +268,19 @@ class ObsVAIL:
 
                 for i in range(len(expert_batch)):
                     if not replay_batch[i]["is_absorbing"]:
-                        batch["state"].append(torch.cat([replay_batch[i]["state"][:, 0], torch.Tensor(context)]))
+                        batch["state"].append(
+                            torch.cat([torch.Tensor(replay_batch[i]["state"][:, 0]), torch.Tensor(context),
+                                       torch.Tensor([0])]))
                         batch["action"].append(torch.Tensor(replay_batch[i]["action"]))
-                        batch["done"].append(torch.Tensor(replay_batch[i]["done"]))
+                        batch["done"].append(torch.Tensor([replay_batch[i]["done"]]))
                         batch["next_state"].append(
-                            torch.cat([replay_batch[i]["next_state"][:, 0], torch.Tensor(context)]))
-                        batch["reward"].append(log_D_replay[i] - log_one_minus_D_replay[i])
+                            torch.cat([torch.Tensor(replay_batch[i]["next_state"][:, 0]), torch.Tensor(context),
+                                       torch.Tensor([int(replay_batch[i]["done"])])]))
+
+                        reward = log_D_replay[i] - log_one_minus_D_replay[i]
+                        if self.reward_clip:
+                            reward = torch.clamp(reward, min=-self.clip_val_reward, max=self.clip_val_reward)
+                        batch["reward"].append(torch.Tensor([reward]))
 
                 if len(batch["state"]):
                     self.policy_update_count += 1
@@ -300,7 +320,7 @@ class ObsVAIL:
     def _prepare_discriminator_input(self, transition, phase, context):
 
         if transition["is_absorbing"]:
-            return {"input": torch.Tensor(self.absorbing_state), "phase": phase}
+            return {"input": torch.Tensor(self.absorbing_state).requires_grad_(), "phase": phase}
         else:
             return {"input": torch.cat([transition["encoded_state"],
                                         torch.Tensor(context),
@@ -324,12 +344,13 @@ class ObsVAIL:
 
         if attributes_path is None:
             attributes_path = f"attributes/{env_name}"
+        os.makedirs(attributes_path, exist_ok=True)
 
         print_heading("Saving discriminator and encoder network parameters")
         torch.save(self.discriminator.state_dict(), discriminator_path + f"actor_{info}.pt")
         torch.save(self.encoder.state_dict(), encoder_path + f"value_{info}.pt")
 
-        with open(attributes_path) as f:
+        with open(attributes_path+"attributes.pkl","wb") as f:
             pickle.dump({"current_iteration": self.current_iteration, "beta": self.beta,
                          "policy_update_count": self.policy_update_count, "max_reward": self.max_reward}, f)
         heading_decorator(bottom=True, print_req=True)
@@ -344,7 +365,7 @@ class ObsVAIL:
         if encoder_path is not None:
             self.encoder.load_state_dict(torch.load(encoder_path))
 
-        with open(attributes_path) as f:
+        with open(attributes_path,"rb") as f:
             attributes = pickle.load(f)
 
         self.current_iteration = attributes["current_iteration"]

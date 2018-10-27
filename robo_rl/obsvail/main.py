@@ -45,11 +45,11 @@ attributesdir = f"./attributes/ProstheticsEnv/"
 logfile = get_logfile_name(args)
 
 os.makedirs(logdir, exist_ok=True)
-writer = SummaryWriter(log_dir=logdir)
+writer = SummaryWriter(log_dir=logdir + logfile)
 
 squasher = SigmoidSquasher()
 
-sac = SAC(action_dim=action_dim, state_dim=policy_state_dim + context_dim, hidden_dim=sac_hidden_dim,
+sac = SAC(action_dim=action_dim, state_dim=policy_state_dim + context_dim + 1, hidden_dim=sac_hidden_dim,
           discount_factor=args.discount_factor, optimizer=optimizer, policy_lr=args.policy_lr, critic_lr=args.critic_lr,
           value_lr=args.value_lr, writer=writer, scale_reward=args.scale_reward, reparam=args.reparam,
           target_update_interval=args.target_update_interval, soft_update_tau=args.soft_update_tau,
@@ -87,13 +87,11 @@ obsvail = ObsVAIL(env=env, expert_file_path=expert_file_path, discriminator=disc
                   learning_rate_decay=22, learning_rate_decay_training_steps=22, optimizer=optimizer,
                   discriminator_weight_decay=args.discriminator_weight_decay, gp_lambda=args.gp_lambda,
                   encoder_weight_decay=args.encoder_weight_decay, information_constraint=args.information_constraint,
-                  grad_clip=args.grad_clip, loss_clip=args.loss_clip,
+                  grad_clip=args.grad_clip, loss_clip=args.loss_clip, reward_clip=args.reward_clip,
+                  clip_val_reward=args.clip_val_reward,
                   clip_val_grad=args.clip_val_grad, clip_val_loss=args.clip_val_loss, batch_size=args.batch_size)
 
 obsvail.train(num_iterations=args.num_iterations, save_iter=args.save_iter, modeldir=modeldir,
               attributesdir=attributesdir, bufferdir=bufferdir, logfile=logfile)
 
 # TODO For SAC use reparam trick with normalising flow(??)
-
-# TODO regularisation in form of gradient penalties for stable learning. makes GAN stable. Refer paper
-# TODO Should we use simple weight regularisation then?
