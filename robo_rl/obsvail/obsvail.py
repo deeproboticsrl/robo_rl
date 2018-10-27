@@ -7,6 +7,10 @@ import torch.autograd as autograd
 from pros_ai import get_policy_observation, get_expert_observation
 from robo_rl.common import TrajectoryBuffer, xavier_initialisation, None_grad, print_heading, heading_decorator
 from torch.distributions import Normal, kl_divergence
+from mpi4py import MPI
+comm = MPI.COMM_WORLD
+size = comm.size
+rank = comm.rank
 
 
 class ObsVAIL:
@@ -105,6 +109,24 @@ class ObsVAIL:
             # Episode reward is used only as a metric for performance
             episode_reward = 0
             while not done and timestep <= self.trajectory_length - 2:
+                ''' Parallelize here TODO
+                 initialize n
+                 states = []
+                 actions =[]
+                 for i in range(n):
+                    state = env.reset()
+                    states.append(state)
+                    action = self.off_policy_algorithm.get_action(state)
+                    actions.append(action)
+                    
+                 Scatter action
+                 for each agent
+                 observation, reward, done, _ = self.env.step(np.array(action), project=False)
+                 Gather observation ,reward,done 
+                 Append policy trajectory 
+                 Wrap trajecory and add to buffer
+               
+                '''
                 action = self.off_policy_algorithm.get_action(state).detach()
                 observation, reward, done, _ = self.env.step(np.array(action), project=False)
                 observation = get_policy_observation(observation)

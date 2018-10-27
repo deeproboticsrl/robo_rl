@@ -119,7 +119,7 @@ timestep = 0
 episode_reward = 0
 
 while not done and timestep <= 2:
-    # while not done and timestep <= obsvail.trajectory_length - 2:
+# while not done and timestep <= obsvail.trajectory_length - 2:
     # used only as a metric for performance
     action = obsvail.off_policy_algorithm.get_action(state).detach()
     observation, reward, done, _ = obsvail.env.step(np.array(action), project=False)
