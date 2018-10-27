@@ -4,10 +4,10 @@ import pickle
 import numpy as np
 import torch
 import torch.autograd as autograd
+from mpi4py import MPI
 from pros_ai import get_policy_observation, get_expert_observation
 from robo_rl.common import TrajectoryBuffer, xavier_initialisation, None_grad, print_heading, heading_decorator
 from torch.distributions import Normal, kl_divergence
-from mpi4py import MPI
 
 comm = MPI.COMM_WORLD
 size = comm.size
@@ -156,6 +156,9 @@ class ObsVAIL:
                 print(f"\nNew best model with reward {self.max_reward}")
                 self.save_model(all_nets_path=modeldir + logfile + "/", env_name="ProstheticsEnv", info="best",
                                 attributes_path=attributesdir + logfile + "/")
+                # save trajectory for best model
+                with open(modeldir + logfile + "/best_trajectory.pkl", "wb") as f:
+                    pickle.dump(policy_trajectory, f)
 
             if iteration % save_iter == 0:
                 print(f"\nSaving periodically - iteration {iteration}")
@@ -319,6 +322,8 @@ class ObsVAIL:
                         reward = log_D_replay[i] - log_one_minus_D_replay[i]
                         if self.reward_clip:
                             reward = torch.clamp(reward, min=-self.clip_val_reward, max=self.clip_val_reward)
+                        self.writer.add_scalar("Reward mean", reward.mean(),
+                                               global_step=iteration * self.trajectory_length + timestep)
                         batch["reward"].append(torch.Tensor([reward]))
 
                 if len(batch["state"]):

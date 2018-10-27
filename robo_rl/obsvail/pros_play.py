@@ -1,4 +1,5 @@
 import os
+import pickle
 
 import numpy as np
 import torch
@@ -15,10 +16,11 @@ parser = get_obsvail_parser()
 args = parser.parse_args()
 env = ProstheticsEnv(visualize=True)
 
+seed = 0
 # seeding
-env.seed(args.env_seed)
-torch.manual_seed(args.env_seed)
-np.random.seed(args.env_seed)
+env.seed(seed)
+torch.manual_seed(seed)
+np.random.seed(seed)
 
 observation = env.reset(project=False)
 action_dim = env.action_space.shape[0]
@@ -35,8 +37,6 @@ sac_hidden_dim = [1024, 512]
 logdir = "./tensorboard_log/"
 # logdir += "dummy"
 modeldir = f"./model/ProstheticsEnv/"
-bufferdir = f"./buffer/ProstheticsEnv/"
-attributesdir = f"./attributes/ProstheticsEnv/"
 
 logfile = get_logfile_name(args)
 
@@ -55,32 +55,50 @@ sac = SAC(action_dim=action_dim, state_dim=policy_state_dim + context_dim + 1, h
           deterministic=args.deterministic, clip_val_loss=args.clip_val_loss, log_std_min=args.log_std_min,
           log_std_max=args.log_std_max)
 
-actor_path = modeldir + logfile + "/actor_best.pt"
-
-sac.load_model(actor_path=actor_path)
+play_actor = False
 
 current_observation = get_policy_observation(env.reset(project=False))
 
-# Sample random context for the trajectory
-context = [np.random.randint(0, 1) for _ in range(context_dim)]
-# indicator for absorbing state
-state = torch.Tensor(np.append(np.append(current_observation, context), 0))
-done = False
-timestep = 0
+if play_actor:
+    actor_path = modeldir + logfile + "/actor_best.pt"
 
-# Episode reward is used only as a metric for performance
-episode_reward = 0
-while not done:
-    action = sac.get_action(state).detach()
-    observation, reward, done, _ = env.step(np.array(action), project=False)
-    observation = get_policy_observation(observation)
-    sample = dict(state=current_observation, action=action, reward=reward, is_absorbing=False,
-                  next_state=observation, done=done)
+    sac.load_model(actor_path=actor_path)
 
-    current_observation = observation
+    # Sample random context for the trajectory
+    context = [np.random.randint(0, 1) for _ in range(context_dim)]
+    # indicator for absorbing state
     state = torch.Tensor(np.append(np.append(current_observation, context), 0))
-    episode_reward += reward
-    timestep += 1
+    done = False
+    timestep = 0
+
+    # Episode reward is used only as a metric for performance
+    episode_reward = 0
+    while not done:
+        action = sac.get_action(state).detach()
+        observation, reward, done, _ = env.step(np.array(action), project=False)
+        observation = get_policy_observation(observation)
+
+        current_observation = observation
+        state = torch.Tensor(np.append(np.append(current_observation, context), 0))
+        episode_reward += reward
+        timestep += 1
+        print(episode_reward, timestep)
+
     print(episode_reward, timestep)
 
-print(episode_reward, timestep)
+else:
+    with open(modeldir + logfile + "/best_trajectory.pkl", "rb") as f:
+        trajectory = pickle.load(f)["trajectory"]
+        done = False
+        timestep = 0
+
+        episode_reward = 0
+        while not done:
+            action = trajectory[timestep]["action"]
+            observation, reward, done, _ = env.step(np.array(action), project=False)
+
+            episode_reward += reward
+            timestep += 1
+            print(episode_reward, timestep)
+
+        print(episode_reward, timestep)
