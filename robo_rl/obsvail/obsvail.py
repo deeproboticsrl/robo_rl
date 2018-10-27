@@ -88,6 +88,7 @@ class ObsVAIL:
     def train(self, save_iter, modeldir, attributesdir, bufferdir, logfile, num_iterations=1000000):
 
         for iteration in range(self.current_iteration, self.current_iteration + num_iterations + 1):
+            print(f"Starting iteration {iteration}")
 
             # Sample trajectory using policy
 
@@ -125,6 +126,21 @@ class ObsVAIL:
             self.replay_buffer.add(policy_trajectory)
 
             self.writer.add_scalar("Episode reward", episode_reward, global_step=iteration)
+
+            if episode_reward > self.max_reward:
+                self.max_reward = episode_reward
+                # save current best model
+                print(f"\nNew best model with reward {self.max_reward}")
+                self.save_model(all_nets_path=modeldir + logfile + "/", env_name="ProstheticsEnv", info="best",
+                                attributes_path=attributesdir + logfile + "/")
+
+            if iteration % save_iter == 0:
+                print(f"\nSaving periodically - iteration {iteration}")
+                self.save_model(all_nets_path=modeldir + logfile + "/", env_name="ProstheticsEnv", info="best",
+                                attributes_path=attributesdir + logfile + "/")
+                self.replay_buffer.save_buffer(path=bufferdir + logfile + "/", info="ProstheticsEnv")
+
+            self.current_iteration += 1
 
             if len(self.replay_buffer) < self.batch_size:
                 continue
@@ -285,21 +301,6 @@ class ObsVAIL:
                 if len(batch["state"]):
                     self.policy_update_count += 1
                     self.off_policy_algorithm.policy_update(batch=batch, update_number=self.policy_update_count)
-
-            if episode_reward > self.max_reward:
-                self.max_reward = episode_reward
-                # save current best model
-                print(f"\nNew best model with reward {self.max_reward}")
-                self.save_model(all_nets_path=modeldir + logfile + "/", env_name="ProstheticsEnv", info="best",
-                                attributes_path=attributesdir + logfile + "/")
-
-            if iteration % save_iter == 0:
-                print(f"\nSaving periodically - iteration {iteration}")
-                self.save_model(all_nets_path=modeldir + logfile + "/", env_name="ProstheticsEnv", info="best",
-                                attributes_path=attributesdir + logfile + "/")
-                self.replay_buffer.save_buffer(path=bufferdir + logfile + "/", info="ProstheticsEnv")
-
-            self.current_iteration += 1
 
     def _wrap_trajectories(self, trajectories, add_absorbing=False):
         """Wrap trajectories with absorbing state transition.

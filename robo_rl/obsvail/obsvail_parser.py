@@ -36,7 +36,7 @@ parser.add_argument('--td3_update_interval', type=int, default=1,
 
 parser.add_argument('--replay_buffer_capacity', type=int, default=1000, help='replay buffer capacity')
 parser.add_argument('--expert_buffer_capacity', type=int, default=120, help='expert buffer capacity')
-parser.add_argument('--batch_size', type=int, default=1, help='number of samples from buffer used for 1 update')
+parser.add_argument('--batch_size', type=int, default=16, help='number of samples from buffer used for 1 update')
 
 parser.add_argument('--num_networks_discriminator', type=int, default=10,
                     help='number of intervals in Phase Functional discriminator')
