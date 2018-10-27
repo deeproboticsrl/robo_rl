@@ -9,6 +9,8 @@ parser.add_argument('--clip_val_loss', type=float, default=1000, help="Max value
 parser.add_argument('--clip_val_grad', type=float, default=40, help="Max value(absolute) for gradients when clipping")
 parser.add_argument('--clip_val_reward', type=float, default=1, help="Max value(absolute) for reward when clipping")
 
+parser.add_argument('--num_workers', type=int, default=20, help='Number of workers for each evaluation')
+
 parser.add_argument('--save_iter', type=int, default=20, help='save model and buffer '
                                                               'after certain number of iteration')
 parser.add_argument('--max_time_steps', type=int, default=100, help='max number of env timesteps per episode')
@@ -34,20 +36,20 @@ parser.add_argument('--target_update_interval', type=int, default=1,
 parser.add_argument('--td3_update_interval', type=int, default=1,
                     help="used in case of delayed update for policy")
 
-parser.add_argument('--replay_buffer_capacity', type=int, default=1000, help='replay buffer capacity')
+parser.add_argument('--replay_buffer_capacity', type=int, default=10000, help='replay buffer capacity')
 parser.add_argument('--expert_buffer_capacity', type=int, default=120, help='expert buffer capacity')
-parser.add_argument('--batch_size', type=int, default=16, help='number of samples from buffer used for 1 update')
+parser.add_argument('--batch_size', type=int, default=32, help='number of samples from buffer used for 1 update')
 
 parser.add_argument('--num_networks_discriminator', type=int, default=10,
                     help='number of intervals in Phase Functional discriminator')
-parser.add_argument('--information_constraint', type=float, default=0.5, help='value of bottleneck constraint')
+parser.add_argument('--information_constraint', type=float, default=0.25, help='value of bottleneck constraint')
 parser.add_argument('--gp_lambda', type=float, default=10, help='Coefficient for gradient penalties')
 
-parser.add_argument('--beta_lr', type=float, default=0.0001, help='stepsize for updating beta in vail')
+parser.add_argument('--beta_lr', type=float, default=0.001, help='stepsize for updating beta in vail')
 parser.add_argument('--discriminator_lr', type=float, default=0.0003, help="learning rate for discriminator")
 parser.add_argument('--encoder_lr', type=float, default=0.0003, help="learning rate for encoder")
 
-parser.add_argument('--beta_init', type=float, default=0.25, help='initial value for beta')
+parser.add_argument('--beta_init', type=float, default=4, help='initial value for beta')
 
 parser.add_argument('--encoder_weight_decay', type=float, default=0.01,
                     help="L2 regularisation constant for encoder weights")

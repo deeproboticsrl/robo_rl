@@ -8,6 +8,7 @@ from pros_ai import get_policy_observation, get_expert_observation
 from robo_rl.common import TrajectoryBuffer, xavier_initialisation, None_grad, print_heading, heading_decorator
 from torch.distributions import Normal, kl_divergence
 from mpi4py import MPI
+
 comm = MPI.COMM_WORLD
 size = comm.size
 rank = comm.rank
@@ -89,7 +90,7 @@ class ObsVAIL:
         self.policy_update_count = 0
         self.max_reward = -np.inf
 
-    def train(self, save_iter, modeldir, attributesdir, bufferdir, logfile, num_iterations=1000000):
+    def train(self, save_iter, modeldir, attributesdir, bufferdir, logfile, num_iterations=1000000, num_workers=1):
 
         for iteration in range(self.current_iteration, self.current_iteration + num_iterations + 1):
             print(f"Starting iteration {iteration}")
@@ -158,7 +159,7 @@ class ObsVAIL:
 
             if iteration % save_iter == 0:
                 print(f"\nSaving periodically - iteration {iteration}")
-                self.save_model(all_nets_path=modeldir + logfile + "/", env_name="ProstheticsEnv", info="best",
+                self.save_model(all_nets_path=modeldir + logfile + "/", env_name="ProstheticsEnv", info="periodic",
                                 attributes_path=attributesdir + logfile + "/")
                 self.replay_buffer.save_buffer(path=bufferdir + logfile + "/", info="ProstheticsEnv")
 
@@ -273,7 +274,7 @@ class ObsVAIL:
                             encoder_kl_divergence - self.information_constraint)
                     discriminator_loss = encoder_loss + self.gp_lambda * discriminator_gradient_penalty
                 else:
-                    discriminator_loss = -log_D_expert_sum - log_one_minus_D_replay_sum +\
+                    discriminator_loss = -log_D_expert_sum - log_one_minus_D_replay_sum + \
                                          self.gp_lambda * discriminator_gradient_penalty
 
                 # Update encoder
@@ -370,10 +371,10 @@ class ObsVAIL:
         os.makedirs(attributes_path, exist_ok=True)
 
         print_heading("Saving discriminator and encoder network parameters")
-        torch.save(self.discriminator.state_dict(), discriminator_path + f"actor_{info}.pt")
-        torch.save(self.encoder.state_dict(), encoder_path + f"value_{info}.pt")
+        torch.save(self.discriminator.state_dict(), discriminator_path + f"discriminator_{info}.pt")
+        torch.save(self.encoder.state_dict(), encoder_path + f"encoder_{info}.pt")
 
-        with open(attributes_path+"attributes.pkl","wb") as f:
+        with open(attributes_path + "attributes.pkl", "wb") as f:
             pickle.dump({"current_iteration": self.current_iteration, "beta": self.beta,
                          "policy_update_count": self.policy_update_count, "max_reward": self.max_reward}, f)
         heading_decorator(bottom=True, print_req=True)
@@ -388,7 +389,7 @@ class ObsVAIL:
         if encoder_path is not None:
             self.encoder.load_state_dict(torch.load(encoder_path))
 
-        with open(attributes_path,"rb") as f:
+        with open(attributes_path, "rb") as f:
             attributes = pickle.load(f)
 
         self.current_iteration = attributes["current_iteration"]

@@ -92,6 +92,6 @@ obsvail = ObsVAIL(env=env, expert_file_path=expert_file_path, discriminator=disc
                   clip_val_grad=args.clip_val_grad, clip_val_loss=args.clip_val_loss, batch_size=args.batch_size)
 
 obsvail.train(num_iterations=args.num_iterations, save_iter=args.save_iter, modeldir=modeldir,
-              attributesdir=attributesdir, bufferdir=bufferdir, logfile=logfile)
+              attributesdir=attributesdir, bufferdir=bufferdir, logfile=logfile, num_workers=args.num_workers)
 
 # TODO For SAC use reparam trick with normalising flow(??)
