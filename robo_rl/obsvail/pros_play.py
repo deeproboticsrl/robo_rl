@@ -4,6 +4,7 @@ import pickle
 import numpy as np
 import torch
 from osim.env import ProstheticsEnv
+from osim.http.client import Client
 from pros_ai import get_policy_observation
 from robo_rl.obsvail import get_obsvail_parser, get_logfile_name
 from robo_rl.sac import SAC, SigmoidSquasher
@@ -56,6 +57,7 @@ sac = SAC(action_dim=action_dim, state_dim=policy_state_dim + context_dim + 1, h
           log_std_max=args.log_std_max)
 
 play_actor = False
+submit = False
 
 current_observation = get_policy_observation(env.reset(project=False))
 
@@ -87,14 +89,44 @@ if play_actor:
     print(episode_reward, timestep)
 
 else:
-    with open(modeldir + logfile + "/best_trajectory.pkl", "rb") as f:
-        trajectory = pickle.load(f)["trajectory"]
+    if submit:
+        remote_base = "http://grader.crowdai.org:1730"
+        crowdai_token = "f5969a7bb0466e0da072c72d6eb6d667"
+
+        client = Client(remote_base)
+
+        with open(modeldir + logfile + "/best_trajectory.pkl", "rb") as f:
+            trajectory = pickle.load(f)["trajectory"]
+
+        done = False
+        timestep = 0
+
+        observation = client.env_create(crowdai_token, env_id='ProstheticsEnv')
+        episode_reward = 0
+
+        while True:
+            action = trajectory[timestep % 100]["action"]
+            [observation, reward, done, info] = client.env_step(action.detach().numpy().tolist(), True)
+            episode_reward += reward
+            timestep += 1
+            print(episode_reward, timestep)
+            if done:
+                observation = client.env_reset()
+                print("Reset")
+                if not observation:
+                    break
+
+        client.submit()
+
+    else:
+        with open(modeldir + logfile + "/best_trajectory.pkl", "rb") as f:
+            trajectory = pickle.load(f)["trajectory"]
         done = False
         timestep = 0
 
         episode_reward = 0
         while not done:
-            action = trajectory[timestep]["action"]
+            action = trajectory[timestep % 100]["action"]
             observation, reward, done, _ = env.step(np.array(action), project=False)
 
             episode_reward += reward

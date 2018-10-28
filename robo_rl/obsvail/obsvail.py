@@ -254,12 +254,12 @@ class ObsVAIL:
                 if num_non_absorbing_states:
                     # normalise encoder kl divergence
                     encoder_kl_divergence /= num_non_absorbing_states
+                    self.writer.add_scalar("Encoder KL divergence", encoder_kl_divergence,
+                                           global_step=iteration * self.trajectory_length + timestep)
 
                 expert_discriminator_outputs = torch.Tensor(expert_discriminator_outputs)
                 replay_discriminator_outputs = torch.Tensor(replay_discriminator_outputs)
 
-                self.writer.add_scalar("Encoder KL divergence", encoder_kl_divergence,
-                                       global_step=iteration * self.trajectory_length + timestep)
                 self.writer.add_scalar("Normalised discriminator gradient penalty",
                                        discriminator_gradient_penalty / (2 * self.trajectory_length),
                                        global_step=iteration * self.trajectory_length + timestep)
