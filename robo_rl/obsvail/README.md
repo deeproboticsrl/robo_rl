@@ -29,3 +29,9 @@
 ## Cloud implementation
 1. [ Reinforcement Learning through Asynchronous Advantage Actor-Critic on a GPU](https://github.com/NVlabs/GA3C)
 2. [CPU GPU speed up analysis](http://on-demand.gputechconf.com/gtc/2018/presentation/s8272-multi-gpu-accelerated-methods-in-deep-reinforcement-learning.pdf)
+
+## Faster learning
+1. [FAST EXPLORATION WITH SIMPLIFIED MODELS AND APPROXIMATELY OPTIMISTIC PLANNING IN MODELBASED REINFORCEMENT LEARNING](https://openreview.net/pdf?id=HygS7n0cFQ)
+2. [LOCAL SGD CONVERGES FAST AND COMMUNICATES LITTLE](https://openreview.net/pdf?id=S1g2JnRcFX)
+3. [MIMICKING ACTIONS IS A GOOD STRATEGY FOR BEGINNERS: FAST REINFORCEMENT LEARNING WITH FEW EXPERT ACTION SEQUENCES](https://openreview.net/pdf?id=HJfxbhR9KQ)
+4. [FAST ADVERSARIAL TRAINING FOR SEMI-SUPERVISED LEARNING](https://openreview.net/pdf?id=H1fsUiRcKQ)
