@@ -10,3 +10,5 @@ model/
 buffer/
 *.obs
 attributes/
+finite_difference/
+behavior_clone/
