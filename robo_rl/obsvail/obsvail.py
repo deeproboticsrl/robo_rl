@@ -1,5 +1,6 @@
 import os
 import pickle
+import sys
 
 import numpy as np
 import torch
@@ -92,73 +93,97 @@ class ObsVAIL:
 
     def train(self, save_iter, modeldir, attributesdir, bufferdir, logfile, num_iterations=1000000, num_workers=1):
 
+        # initialise workers
+        comm = MPI.COMM_SELF.Spawn(sys.executable,
+                                   args=['./mpi_worker.py'],
+                                   maxprocs=num_workers)
+
+        status = MPI.Status()
+
+        comm.bcast(self.trajectory_length - 2, root=MPI.ROOT)
+
+        finished = False
+
         for iteration in range(self.current_iteration, self.current_iteration + num_iterations + 1):
             print(f"Starting iteration {iteration}")
 
-            # Sample trajectory using policy
+            # Broadcast to every worker that the job is not finished and a new iteration is starting
+            comm.bcast(finished, root=MPI.ROOT)
 
-            policy_trajectory = []
-            current_observation = get_policy_observation(self.env.reset(project=False))
+            policy_trajectories = [[] for _ in range(num_workers)]
+
+            reward = None
+            dones = [False] * num_workers
+            all_done = all(dones)
 
             # Sample random context for the trajectory
             context = [np.random.randint(0, 1) for _ in range(self.context_dim)]
-            # indicator for absorbing state
-            state = torch.Tensor(np.append(np.append(current_observation, context), 0))
-            done = False
-            timestep = 0
+
+            # Receive initial observation from each worker and send action
+            for _ in range(num_workers):
+                observation = comm.recv(source=MPI.ANY_SOURCE, status=status, tag=MPI.ANY_TAG)
+
+                # Make state by adding context and indicator for absorbing state
+                state = torch.Tensor(np.append(np.append(observation, context), 0))
+                action = self.off_policy_algorithm.get_action(state).detach()
+
+                """Each transition is added in 2 halves. 
+                The next state, reward and done are added after receiving from worker"""
+                sample = dict(state=observation, action=action, is_absorbing=False)
+                policy_trajectories[status.source].append(sample)
+
+                comm.send(np.array(action), dest=status.source, tag=status.tag)
 
             # Episode reward is used only as a metric for performance
-            episode_reward = 0
-            while not done and timestep <= self.trajectory_length - 2:
-                ''' Parallelize here TODO
-                 initialize n
-                 states = []
-                 actions =[]
-                 for i in range(n):
-                    state = env.reset()
-                    states.append(state)
-                    action = self.off_policy_algorithm.get_action(state)
-                    actions.append(action)
-                    
-                 Scatter action
-                 for each agent
-                 observation, reward, done, _ = self.env.step(np.array(action), project=False)
-                 Gather observation ,reward,done 
-                 Append policy trajectory 
-                 Wrap trajecory and add to buffer
-               
-                '''
-                action = self.off_policy_algorithm.get_action(state).detach()
-                observation, reward, done, _ = self.env.step(np.array(action), project=False)
-                observation = get_policy_observation(observation)
-                sample = dict(state=current_observation, action=action, reward=reward, is_absorbing=False,
-                              next_state=observation, done=done)
-                policy_trajectory.append(sample)
+            episode_rewards = [0] * num_workers
 
-                current_observation = observation
-                state = torch.Tensor(np.append(np.append(current_observation, context), 0))
-                episode_reward += reward
-                timestep += 1
-            policy_trajectory[-1]["done"] = True
-            non_encoded_absorbing_state = [0] * (current_observation.shape[0])
-            policy_trajectory[-1]["next_state"] = np.array([non_encoded_absorbing_state]).T
+            # Receive from any worker till all of them finish one episode
+            while not all_done:
+                observation = comm.recv(source=MPI.ANY_SOURCE, status=status, tag=MPI.ANY_TAG)
+                reward = comm.recv(source=status.source, tag=status.tag)
+                done = comm.recv(source=status.source, tag=status.tag)
 
-            # Wrap policy trajectory with absorbing state and store in replay buffer
-            policy_trajectory = {"trajectory": policy_trajectory, "context": context}
-            self._wrap_trajectories([policy_trajectory])
-            self.replay_buffer.add(policy_trajectory)
+                # add above 3 to trajectory, hence completing previous transition
+                policy_trajectories[status.source][-1]["next_state"] = observation
+                policy_trajectories[status.source][-1]["done"] = done
+                policy_trajectories[status.source][-1]["reward"] = reward
 
-            self.writer.add_scalar("Episode reward", episode_reward, global_step=iteration)
+                dones[status.tag] = done
+                all_done = all(dones)
+                episode_rewards[status.tag] += reward
 
-            if episode_reward > self.max_reward:
-                self.max_reward = episode_reward
+                if not done:
+                    state = torch.Tensor(np.append(np.append(observation, context), 0))
+                    action = self.off_policy_algorithm.get_action(state).detach()
+
+                    sample = dict(state=observation, action=action, is_absorbing=False)
+                    policy_trajectories[status.source].append(sample)
+
+                    comm.send(np.array(action), dest=status.source, tag=status.tag)
+
+            for policy_trajectory in policy_trajectories:
+                policy_trajectory[-1]["done"] = True
+                non_encoded_absorbing_state = [0] * (observation.shape[0])
+                policy_trajectory[-1]["next_state"] = np.array([non_encoded_absorbing_state]).T
+
+                # Wrap policy trajectory with absorbing state and store in replay buffer
+                policy_trajectory = {"trajectory": policy_trajectory, "context": context}
+                self._wrap_trajectories([policy_trajectory])
+                self.replay_buffer.add(policy_trajectory)
+
+            episode_reward_mean = sum(episode_rewards) / num_workers
+            self.writer.add_scalar("Episode reward mean", episode_reward_mean, global_step=iteration)
+            self.writer.add_histogram("Episode rewards", episode_rewards, global_step=iteration)
+
+            if episode_reward_mean > self.max_reward:
+                self.max_reward = episode_reward_mean
                 # save current best model
                 print(f"\nNew best model with reward {self.max_reward}")
                 self.save_model(all_nets_path=modeldir + logfile + "/", env_name="ProstheticsEnv", info="best",
                                 attributes_path=attributesdir + logfile + "/")
                 # save trajectory for best model
                 with open(modeldir + logfile + "/best_trajectory.pkl", "wb") as f:
-                    pickle.dump(policy_trajectory, f)
+                    pickle.dump({"trajectories": policy_trajectories, "rewards": episode_rewards}, f)
 
             if iteration % save_iter == 0:
                 print(f"\nSaving periodically - iteration {iteration}")
@@ -167,6 +192,8 @@ class ObsVAIL:
                 self.replay_buffer.save_buffer(path=bufferdir + logfile + "/", info="ProstheticsEnv")
 
             self.current_iteration += 1
+
+            print(episode_rewards, episode_reward_mean)
 
             if len(self.replay_buffer) < self.batch_size:
                 continue

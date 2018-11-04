@@ -9,7 +9,7 @@ parser.add_argument('--clip_val_loss', type=float, default=1000, help="Max value
 parser.add_argument('--clip_val_grad', type=float, default=40, help="Max value(absolute) for gradients when clipping")
 parser.add_argument('--clip_val_reward', type=float, default=1, help="Max value(absolute) for reward when clipping")
 
-parser.add_argument('--num_workers', type=int, default=15, help='Number of workers for each evaluation')
+parser.add_argument('--num_workers', type=int, default=2, help='Number of workers for each evaluation')
 
 parser.add_argument('--save_iter', type=int, default=20, help='save model and buffer '
                                                               'after certain number of iteration')
@@ -23,7 +23,7 @@ parser.add_argument('--critic_lr', type=float, default=0.0003, help="learning ra
 
 parser.add_argument('--soft_update_tau', type=float, default=0.005, help="target smoothening coefficient tau")
 parser.add_argument('--discount_factor', type=float, default=0.99, help='discount factor gamma')
-parser.add_argument('--scale_reward', type=float, default=1000,
+parser.add_argument('--scale_reward', type=float, default=10000,
                     help="reward scaling humannoid_v1=20, humnanoid_rllab=10, other mujoco=5")
 parser.add_argument('--reparam', type=bool, default=True, help="True if reparameterization trick is applied")
 

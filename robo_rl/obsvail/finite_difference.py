@@ -8,9 +8,10 @@ import torch.nn as nn
 import torch.nn.functional as torchfunc
 from osim.env import ProstheticsEnv
 from pros_ai import get_policy_observation
-from robo_rl.common import LinearNetwork, no_activation, xavier_initialisation, None_grad
+from robo_rl.common import LinearNetwork, xavier_initialisation, None_grad
 from tensorboardX import SummaryWriter
-from torch.optim import Adam
+from torch.optim import Adam, SGD
+import torch.autograd as autograd
 
 torch.manual_seed(0)
 
@@ -19,12 +20,13 @@ env = ProstheticsEnv(visualize=False)
 logdir = "./finite_difference/log/"
 modeldir = "./finite_difference/model/"
 
-lr = 0.0001
+lr = 0.01
 num_iterations = 500
-epsilon = 0.0001
+epsilon = 0.01
 hidden_dim = [512]
 
-logfile = f"lr_{lr}_num_iterations_{num_iterations}_hidden_dim={hidden_dim}_epsilon={epsilon}"
+logfile = "_reward_SGD"
+logfile += f"lr_{lr}_num_iterations_{num_iterations}_hidden_dim={hidden_dim}_epsilon={epsilon}"
 logfile += "/"
 
 os.makedirs(modeldir + logfile, exist_ok=True)
@@ -59,27 +61,26 @@ layers_size.append(action_dim)
 
 # initialise policy as a list of networks
 policy = nn.ModuleList([
-    LinearNetwork(layers_size=layers_size, final_layer_function=torch.sigmoid, activation_function=torchfunc.elu
-                  ) for _ in range(trajectory_length)])
+    LinearNetwork(layers_size=layers_size, final_layer_function=torch.sigmoid, activation_function=torchfunc.elu,
+                  is_layer_norm=False) for _ in range(trajectory_length)])
 
 policy.apply(xavier_initialisation)
 
-policy_optimiser = Adam(policy.parameters(), lr=lr)
+# policy_optimiser = Adam(policy.parameters(), lr=lr)
+policy_optimiser = SGD(policy.parameters(), lr=lr)
 
 
 def finite_difference(action, index):
     env.reset()
     action_plus = copy.deepcopy(action)
     action_plus[index] += epsilon
-    observation_plus, _, _, _ = env.step(action_plus.detach().numpy(), project=False)
-    observation_plus = get_policy_observation(observation_plus)
+    _, reward_plus, _, _ = env.step(action_plus.detach().numpy(), project=False)
 
     action_minus = copy.deepcopy(action)
     action_minus[index] -= epsilon
-    observation_minus, _, _, _ = env.step(action_minus.detach().numpy(), project=False)
-    observation_minus = get_policy_observation(observation_minus)
+    _, reward_minus, _, _ = env.step(action_minus.detach().numpy(), project=False)
 
-    return torch.Tensor((observation_plus - observation_minus) / (2 * epsilon))
+    return torch.Tensor([(reward_plus - reward_minus) / (2 * epsilon)]).mean()
 
 
 # minimise loss with experts incrementally
@@ -97,15 +98,19 @@ for max_timestep in range(1):
         episode_reward = 0
 
         loss_grad = []
-        action_grads = []
+        actions_grads = []
         actions = []
+        action_out_of_bound_penalty = 0
         while not done and timestep <= max_timestep:
             action = policy[timestep].forward(observation[:, 0])
-            action = torch.clamp(action,min=0,max=1)
+            print(action)
+            action = torch.clamp(action, min=0, max=1)
             actions.append(action)
 
+            action_grads = []
             for action_index in range(action_dim):
                 action_grads.append(finite_difference(action.detach(), action_index))
+            actions_grads.append(action_grads)
 
             observation, reward, done, _ = env.step(action.detach().numpy(), project=False)
             observation = get_policy_observation(observation)
@@ -128,14 +133,12 @@ for max_timestep in range(1):
 
         writer.add_scalar("Episode reward", episode_reward, global_step=max_timestep * num_iterations + iteration)
 
-        policy_loss = 0
-        for i in range(len(loss_grad)):
-            print(loss_grad[i],action_grads[i],actions[i])
-            policy_loss += (torch.Tensor(loss_grad[i]) * actions[i] * action_grads[i]).sum()
-            # policy_loss += torch.Tensor([out_of_bound_penalty_episode[i]])
+        print(actions[0], actions_grads[0])
 
         None_grad(policy_optimiser)
-        policy_loss.backward()
+        autograd.backward(tensors=actions[0],
+                          grad_tensors=torch.Tensor(actions_grads[0]), retain_graph=True)
+
         policy_optimiser.step()
 
     print("Saving model")
