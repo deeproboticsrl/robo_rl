@@ -112,7 +112,6 @@ class ObsVAIL:
 
             policy_trajectories = [[] for _ in range(num_workers)]
 
-            reward = None
             dones = [False] * num_workers
             all_done = all(dones)
 
@@ -173,7 +172,7 @@ class ObsVAIL:
 
             episode_reward_mean = sum(episode_rewards) / num_workers
             self.writer.add_scalar("Episode reward mean", episode_reward_mean, global_step=iteration)
-            self.writer.add_histogram("Episode rewards", episode_rewards, global_step=iteration)
+            self.writer.add_histogram("Episode rewards", torch.Tensor(episode_rewards), global_step=iteration)
 
             if episode_reward_mean > self.max_reward:
                 self.max_reward = episode_reward_mean

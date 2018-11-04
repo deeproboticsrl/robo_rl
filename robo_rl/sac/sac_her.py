@@ -107,13 +107,13 @@ for cur_episode in range(1, args.num_episodes + 1):
 
     sac.writer.add_scalar("Policy linear layer 1 weight 0", sac.policy.linear_layers[0].weight[0][0], cur_episode)
     for name, param in sac.policy.named_parameters():
-        sac.writer.add_histogram("policy_" + name, param.clone().cpu().data.numpy(), cur_episode)
+        sac.writer.add_histogram("policy_" + name, param, cur_episode)
     for name, param in sac.value.named_parameters():
-        sac.writer.add_histogram("value_" + name, param.clone().cpu().data.numpy(), cur_episode)
+        sac.writer.add_histogram("value_" + name, param, cur_episode)
     for name, param in sac.critics[0].named_parameters():
-        sac.writer.add_histogram("critic1_" + name, param.clone().cpu().data.numpy(), cur_episode)
+        sac.writer.add_histogram("critic1_" + name, param, cur_episode)
     for name, param in sac.critics[1].named_parameters():
-        sac.writer.add_histogram("critic2_" + name, param.clone().cpu().data.numpy(), cur_episode)
+        sac.writer.add_histogram("critic2_" + name, param, cur_episode)
 
     # add hindsight transitions
     if args.goal_obs:

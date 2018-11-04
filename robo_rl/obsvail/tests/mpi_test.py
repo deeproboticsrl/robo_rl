@@ -18,7 +18,6 @@ num_iterations = 2
 finished = False
 for _ in range(num_iterations):
     comm.bcast(finished, root=MPI.ROOT)
-    reward = None
     dones = [False] * num_processes
     episode_rewards = [0] * num_processes
 

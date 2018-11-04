@@ -29,7 +29,7 @@ while not finished:
 
     while not done:
         action = comm.recv(source=0, tag=rank)
-        observation, reward, done, _ = env.step(action)
+        observation, reward, done, _ = env.step(action, project=False)
         observation = get_policy_observation(observation)
         comm.send(observation, dest=0, tag=rank)
         comm.send(reward, dest=0, tag=rank)
