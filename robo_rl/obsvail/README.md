@@ -35,3 +35,4 @@
 2. [LOCAL SGD CONVERGES FAST AND COMMUNICATES LITTLE](https://openreview.net/pdf?id=S1g2JnRcFX)
 3. [MIMICKING ACTIONS IS A GOOD STRATEGY FOR BEGINNERS: FAST REINFORCEMENT LEARNING WITH FEW EXPERT ACTION SEQUENCES](https://openreview.net/pdf?id=HJfxbhR9KQ)
 4. [FAST ADVERSARIAL TRAINING FOR SEMI-SUPERVISED LEARNING](https://openreview.net/pdf?id=H1fsUiRcKQ)
+5. [Distributed Delayed Stochastic Optimization](http://papers.nips.cc/paper/4247-distributed-delayed-stochastic-optimization.pdf)
