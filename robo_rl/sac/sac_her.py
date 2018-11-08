@@ -24,10 +24,10 @@ env.seed(args.env_seed)
 torch.manual_seed(args.env_seed)
 np.random.seed(args.env_seed)
 
-logdir = "./tensorboard_log/"
+logdir = f"./tensorboard_log/{args.env_name}/"
 # logdir += "dummy"
 modeldir = f"./model/{args.env_name}/"
-bufferdir = f"./buffer/{args.env_name}"
+bufferdir = f"./buffer/{args.env_name}/"
 
 logfile = get_logfile_name(args)
 
@@ -37,7 +37,7 @@ if args.goal_obs:
 else:
     state_dim = env.observation_space.spaces["observation"].shape[0]
 goal_dim = env.observation_space.spaces["achieved_goal"].shape[0]
-hidden_dim = [args.hidden_dim] * 2
+hidden_dim = [args.hidden_dim] * args.num_layers
 
 os.makedirs(logdir, exist_ok=True)
 writer = SummaryWriter(log_dir=logdir + logfile)
@@ -83,8 +83,8 @@ for cur_episode in range(1, args.num_episodes + 1):
     timestep = 0
     episode_buffer = []
 
+    episode_reward = 0
     while not done and timestep <= args.max_time_steps:
-        episode_reward = 0
         action, log_prob = sac.get_action(torch.cat([state, desired_goal]), evaluate=True,
                                           deterministic=args.deterministic)
         action = action.detach()
@@ -188,7 +188,7 @@ for cur_episode in range(1, args.num_episodes + 1):
             print(f"\nNew best model with accuracy {max_accuracy}")
             sac.save_model(all_nets_path=modeldir + logfile + "/", env_name=args.env_name, info='best')
 
-        sac.writer.add_scalar("Accuracy ", accuracy, cur_episode / args.test_interval)
+        sac.writer.add_scalar("Accuracy", accuracy, cur_episode / args.test_interval)
 
     if cur_episode % args.save_iter == 0:
         print(f"\nSaving periodically - iteration {cur_episode}")

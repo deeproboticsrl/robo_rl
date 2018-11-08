@@ -3,8 +3,8 @@ import torch.nn as nn
 
 class LinearNetwork(nn.Module):
 
-    def __init__(self, layers_size, final_layer_function, activation_function, is_layer_norm=True,
-                 is_final_layer_norm=False, is_dropout=False, dropout_probability=0.5, bias=True):
+    def __init__(self, layers_size, final_layer_function, activation_function, is_layer_norm=False,
+                 is_final_layer_norm=False, is_dropout=False, dropout_probability=0.5, bias=False):
         """
         Arguments:
 
@@ -63,7 +63,7 @@ class LinearNetwork(nn.Module):
 
 class LinearGaussianNetwork(LinearNetwork):
 
-    def __init__(self, layers_size, final_layer_function, activation_function, is_layer_norm=True):
+    def __init__(self, layers_size, final_layer_function, activation_function, is_layer_norm=False):
         """
         Example If layers_size = [10,200,30,3]
         Number of inputs = 10
@@ -71,9 +71,9 @@ class LinearGaussianNetwork(LinearNetwork):
         Number of outputs = 3 ---- output layer has 2 units 1 for mean and other for log_std
         """
         super().__init__(layers_size[:-1], final_layer_function, activation_function, is_layer_norm,
-                         is_final_layer_norm=True)
-        self.mean_layer = nn.Linear(layers_size[-2], layers_size[-1])
-        self.log_std_layer = nn.Linear(layers_size[-2], layers_size[-1])
+                         is_final_layer_norm=is_layer_norm)
+        self.mean_layer = nn.Linear(layers_size[-2], layers_size[-1], bias=False)
+        self.log_std_layer = nn.Linear(layers_size[-2], layers_size[-1], bias=False)
 
     def forward(self, x):
         x = super().forward(x)

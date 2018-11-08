@@ -14,7 +14,7 @@ def gaaf_relu(x):
 
 class LinearValueNetwork(LinearNetwork):
 
-    def __init__(self, state_dim, hidden_dim, is_layer_norm=True, bias=True, activation_function=torchfunc.relu):
+    def __init__(self, state_dim, hidden_dim, is_layer_norm=False, bias=False, activation_function=torchfunc.relu):
         layers_size = [state_dim]
         layers_size.extend(hidden_dim)
         layers_size.append(1)
@@ -27,7 +27,7 @@ class LinearValueNetwork(LinearNetwork):
 
 class LinearQNetwork(LinearNetwork):
 
-    def __init__(self, state_dim, action_dim, hidden_dim, is_layer_norm=True, bias=True,
+    def __init__(self, state_dim, action_dim, hidden_dim, is_layer_norm=False, bias=False,
                  activation_function=torchfunc.relu):
         layers_size = [state_dim + action_dim]
         layers_size.extend(hidden_dim)

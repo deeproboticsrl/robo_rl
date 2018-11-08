@@ -15,7 +15,7 @@ parser.add_argument('--critic_weight_decay', type=float, default=0,
                     help="L2 regularisation constant for critic weights")
 
 parser.add_argument('--discount_factor', type=float, default=0.99, help='discount factor gamma')
-parser.add_argument('--scale_reward', type=float, default=10000,
+parser.add_argument('--scale_reward', type=float, default=20,
                     help="reward scaling humannoid_v1=20, humnanoid_rllab=10, other mujoco=5")
 parser.add_argument('--reparam', type=bool, default=True, help="True if reparameterization trick is applied")
 parser.add_argument('--rewarding', type=bool, default=False, help="Hindsight reward for each transition")
@@ -35,17 +35,18 @@ parser.add_argument('--log_std_max', type=float, default=2)
 
 parser.add_argument('--target_update_interval', type=int, default=1,
                     help="used in case of hard update for the value function")
-parser.add_argument('--td3_update_interval', type=int, default=1,
+parser.add_argument('--td3_update_interval', type=int, default=100,
                     help="used in case of delayed update for policy")
 
-parser.add_argument('--hidden_dim', type=int, default=256, help='no of hidden units ')
-parser.add_argument('--buffer_capacity', type=int, default=1000000, help='buffer capacity')
-parser.add_argument('--sample_batch_size', type=int, default=32, help='number of samples from replay buffer')
+parser.add_argument('--hidden_dim', type=int, default=256, help='no of hidden units')
+parser.add_argument('--num_layers', type=int, default=2, help='no of hidden layers')
+parser.add_argument('--buffer_capacity', type=int, default=100000, help='buffer capacity')
+parser.add_argument('--sample_batch_size', type=int, default=256, help='number of samples from replay buffer')
 parser.add_argument('--max_time_steps', type=int, default=10000, help='max number of env timesteps per episodes')
-parser.add_argument('--num_episodes', type=int, default=2000, help='number of episodes')
-parser.add_argument('--updates_per_step', type=int, default=40, help='updates per step')
-parser.add_argument('--save_iter', type=int, default=20, help='save model and buffer '
-                                                              'after certain number of iteration')
+parser.add_argument('--num_episodes', type=int, default=10000000, help='number of episodes')
+parser.add_argument('--updates_per_step', type=int, default=1, help='updates per step')
+parser.add_argument('--save_iter', type=int, default=100, help='save model and buffer '
+                                                               'after certain number of iteration')
 parser.add_argument('--test_interval', type=int, default=25, help="Number of episodes after which to test")
 parser.add_argument('--num_tests', type=int, default=50, help="Number of tests for evaluation")
 
@@ -56,32 +57,33 @@ def get_sac_parser():
 
 def get_logfile_name(args):
     logfile = ""
-    if args.unbiased:
-        logfile += "unbiased_her"
-    else:
-        logfile += "biased_her"
-
-    if args.rewarding:
-        logfile += "_rewarding"
-    else:
-        logfile += "_unrewarding"
+    # if args.unbiased:
+    #     logfile += "unbiased_her"
+    # else:
+    #     logfile += "biased_her"
+    #
+    # if args.rewarding:
+    #     logfile += "_rewarding"
+    # else:
+    #     logfile += "_unrewarding"
 
     if args.reparam:
         logfile += "_reparam"
     else:
         logfile += "_no_reparam"
 
-    if args.positive_reward:
-        logfile += "_positive_reward"
+    # if args.positive_reward:
+    #     logfile += "_positive_reward"
 
     logfile += f"_reward_scale={args.scale_reward}_tau={args.soft_update_tau}"
     logfile += f"_samples={args.sample_batch_size}_discount_factor={args.discount_factor}"
-    logfile += f"_td3={args.td3_update_interval}_distance_threshold={args.distance_threshold}"
+    logfile += f"_td3={args.td3_update_interval}"
     logfile += f"_updates={args.updates_per_step}_num_episodes={args.num_episodes}"
     logfile += f"_log_std_min={args.log_std_min}_max={args.log_std_max}_seed={args.env_seed}"
+    logfile += f"_hidden_layers={args.num_layers}_nodes_{args.hidden_dim}"
 
-    if args.goal_obs:
-        logfile += "_GOALIFIED_states"
+    # if args.goal_obs:
+    #     logfile += "_GOALIFIED_states"
     if args.grad_clip:
         logfile += f"_grad_clip_{args.clip_val_grad}"
     if args.loss_clip:

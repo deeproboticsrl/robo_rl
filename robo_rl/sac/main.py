@@ -5,16 +5,16 @@ import numpy as np
 import torch
 from osim.env import ProstheticsEnv
 from robo_rl.common import Buffer
-from robo_rl.sac import SAC, SigmoidSquasher
+from robo_rl.sac import SAC, TanhSquasher
 from tensorboardX import SummaryWriter
 from robo_rl.common.utils import gym_torchify
-from robo_rl.sac import get_sac_parser
+from robo_rl.sac import get_sac_parser, get_logfile_name
 from torch.optim import Adam
 
 optimizer = Adam
 
 parser = get_sac_parser()
-parser.add_argument('--env_name', default="Reacher-v2")
+parser.add_argument('--env_name', default="Humanoid-v2")
 
 args = parser.parse_args()
 if args.env_name == "ProstheticsEnv":
@@ -32,11 +32,17 @@ action_dim = env.action_space.shape[0]
 state_dim = env.observation_space.shape[0]
 hidden_dim = [args.hidden_dim, args.hidden_dim]
 
-logdir = "./tensorboard_log/"
-os.makedirs(logdir, exist_ok=True)
-writer = SummaryWriter(log_dir=logdir)
+logdir = f"./tensorboard_log/{args.env_name}/"
+# logdir += "dummy"
+modeldir = f"./model/{args.env_name}/"
+bufferdir = f"./buffer/{args.env_name}/"
 
-squasher = SigmoidSquasher()
+logfile = get_logfile_name(args)
+
+os.makedirs(logdir, exist_ok=True)
+writer = SummaryWriter(log_dir=logdir + logfile)
+
+squasher = TanhSquasher()
 
 sac = SAC(action_dim=action_dim, state_dim=state_dim, hidden_dim=hidden_dim,
           discount_factor=args.discount_factor, optimizer=optimizer, policy_lr=args.policy_lr, critic_lr=args.critic_lr,
@@ -70,14 +76,14 @@ for cur_episode in range(args.num_episodes):
     state = torch.Tensor(env.reset())
     done = False
     timestep = 0
+    episode_reward = 0
 
     while not done and timestep <= args.max_time_steps:
-        episode_reward = 0
         action = sac.get_action(state).detach()
         observation, reward, done, _ = gym_torchify(env.step(action))
         sample = dict(state=state, action=action, reward=reward, next_state=observation, done=done)
         buffer.add(sample)
-        if len(buffer) > 10 * args.sample_batch_size:
+        if len(buffer) > args.sample_batch_size:
             for num_update in range(args.updates_per_step):
                 update_count += 1
                 batch_list_of_dicts = buffer.sample(batch_size=args.sample_batch_size)
@@ -97,12 +103,23 @@ for cur_episode in range(args.num_episodes):
         max_reward = episode_reward
         # save current best model
         print(f"\nNew best model with reward {max_reward}")
-        sac.save_model(env_name=args.env_name, info='best')
+        sac.save_model(all_nets_path=modeldir + logfile + "/", env_name=args.env_name, info='best')
 
     if cur_episode % args.save_iter == 0:
         print(f"\nSaving periodically - iteration {cur_episode}")
-        sac.save_model(env_name=args.env_name, info=str(cur_episode))
-        buffer.save_buffer(info=args.env_name)
+        sac.save_model(all_nets_path=modeldir + logfile + "/", env_name=args.env_name, info="periodic")
+        buffer.save_buffer(path=bufferdir + logfile + "/", info=args.env_name)
 
     sac.writer.add_scalar("Episode Reward", episode_reward, cur_episode)
     rewards.append(episode_reward)
+
+    sac.writer.add_scalar("Episode Length", timestep, cur_episode)
+    # for name, param in sac.policy.named_parameters():
+    #     sac.writer.add_histogram("policy_" + name, param, cur_episode)
+    # for name, param in sac.value.named_parameters():
+    #     sac.writer.add_histogram("value_" + name, param, cur_episode)
+    # for name, param in sac.critics[0].named_parameters():
+    #     sac.writer.add_histogram("critic1_" + name, param, cur_episode)
+    # for name, param in sac.critics[1].named_parameters():
+    #     sac.writer.add_histogram("critic2_" + name, param, cur_episode)
+

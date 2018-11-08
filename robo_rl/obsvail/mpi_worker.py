@@ -38,6 +38,6 @@ while not finished:
         comm.send(done, dest=0, tag=rank)
         # print(f"Time step - {timestep},rank - {rank}")
 
-    print(f"Process {rank} finished in {timestep} time steps.")
+    # print(f"Process {rank} finished in {timestep} time steps.")
 
     finished = comm.bcast(finished, root=0)
