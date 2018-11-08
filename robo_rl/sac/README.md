@@ -4,10 +4,11 @@
 3. Learning rate schedule?
 4. SAC + unbiased HER
 - [x] SAC + TD3
-
 5. [Reading for change of variable technique used for squashing](https://www.stat.washington.edu/~nehemyl/files/UW_MATH-    STAT395_functions-random-variables.pdf)
 6. [Smoothed Action Value Functions for Learning Gaussian Policies](https://arxiv.org/pdf/1803.02348.pdf) 
 
+
+Could successfully learn Humanoid in around 8000-8200 episodes. Got around 4000-5000 reward. Matches the results in paper
 
 ## Notes from rlkit
 
