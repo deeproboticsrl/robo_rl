@@ -1,8 +1,11 @@
 import torch.nn as nn
 from robo_rl.common.utils.nn_utils import no_activation
-
+import torch.nn.functional as torchfunc
+from torch.distributions.categorical import Categorical
+import torch
 
 class LinearNetwork(nn.Module):
+
 
     def __init__(self, layers_size, final_layer_function, activation_function, is_layer_norm=False,
                  is_final_layer_norm=False, is_dropout=False, dropout_probability=0.5, bias=False):
@@ -46,6 +49,7 @@ class LinearNetwork(nn.Module):
 
         if self.is_dropout:
             self.dropout_layer = nn.AlphaDropout(p=dropout_probability)
+
 
     def forward(self, x):
         for i in range(len(self.linear_layers) - 1):
@@ -92,9 +96,21 @@ class LinearCategoricalNetwork(LinearNetwork):
         Number of outputs = 3 ---- output layer has 2 units 1 for mean and other for log_std
         """
         super().__init__(layers_size[:-1], final_layer_function=no_activation, activation_function=activation_function,
-                         is_layer_norm=is_layer_norm,is_final_layer_norm=is_layer_norm)
+                         is_layer_norm=is_layer_norm, is_final_layer_norm=is_layer_norm)
+        self.output_layer = nn.Linear(layers_size[-2], sum(layers_size[-1]))
+        self.final_layer_dim = layers_size[-1]
 
     def forward(self, x):
-        x= super().forward(x)
+        x = super().forward(x)
+        x = self.output_layer(x)
+        print(x)
+        c = 0
+        y = torch.Tensor(x.size())
+        categorical_obj=[]
+        for ith_action_dim in self.final_layer_dim:
+            y[c: c + ith_action_dim] = torchfunc.softmax(x[c: c + ith_action_dim],dim=0)
+            categorical_obj.append(Categorical(y[c: c + ith_action_dim]))
+            c += ith_action_dim
 
-
+        return categorical_obj
+        # y= x.view(self.final_layer)

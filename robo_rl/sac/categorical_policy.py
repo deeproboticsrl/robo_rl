@@ -16,12 +16,14 @@ class LinearCategoricalPolicy (LinearCategoricalNetwork):
         super().__init__(layers_size=layers_size, is_layer_norm=is_layer_norm,
                          activation_function=torchfunc.relu)
     def forward(self,state):
-        super().forward(state)
+        return super().forward(state)
+
 
     def get_action(self,state):
         categories = self.forward(state)
         sampled_action= [x.sample() for x in categories]
         return sampled_action
+
 
 
 
