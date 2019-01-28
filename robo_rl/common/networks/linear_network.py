@@ -1,4 +1,5 @@
 import torch.nn as nn
+from robo_rl.common.utils.nn_utils import no_activation
 
 
 class LinearNetwork(nn.Module):
@@ -80,3 +81,20 @@ class LinearGaussianNetwork(LinearNetwork):
         mean = self.final_layer_function(self.mean_layer(x))
         log_std = self.final_layer_function(self.log_std_layer(x))
         return mean, log_std
+
+
+class LinearCategoricalNetwork(LinearNetwork):
+    def __init__(self, layers_size, activation_function, is_layer_norm=False):
+        """
+        Example If layers_size = [10,200,30,[3,3,3]]
+        Number of inputs = 10
+        Number of hidden layers = 2 with 200 nodes in 1st layer and 300 in next layer
+        Number of outputs = 3 ---- output layer has 2 units 1 for mean and other for log_std
+        """
+        super().__init__(layers_size[:-1], final_layer_function=no_activation, activation_function=activation_function,
+                         is_layer_norm=is_layer_norm,is_final_layer_norm=is_layer_norm)
+
+    def forward(self, x):
+        x= super().forward(x)
+
+
