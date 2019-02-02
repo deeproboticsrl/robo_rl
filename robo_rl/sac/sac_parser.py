@@ -1,11 +1,11 @@
 import argparse
 
 parser = argparse.ArgumentParser(description='Soft Actor Critic')
-parser.add_argument('--env_seed', type=int, default=1105, help="environment seed")
-parser.add_argument('--soft_update_tau', type=float, default=0.005, help="target smoothening coefficient tau")
-parser.add_argument('--policy_lr', type=float, default=0.0003, help="learning rate")
-parser.add_argument('--value_lr', type=float, default=0.0003, help="learning rate")
-parser.add_argument('--critic_lr', type=float, default=0.0003, help="learning rate")
+parser.add_argument('--env_seed', type=int, default=0, help="environment seed")
+parser.add_argument('--soft_update_tau', type=float, default=0.005, help="target smoothing coefficient tau")
+parser.add_argument('--policy_lr', type=float, default=0.0003, help="policy learning rate")
+parser.add_argument('--value_lr', type=float, default=0.0003, help="value net learning rate")
+parser.add_argument('--critic_lr', type=float, default=0.0003, help="q value net learning rate")
 
 parser.add_argument('--policy_weight_decay', type=float, default=0,
                     help="L2 regularisation constant for policy weights")
@@ -15,7 +15,7 @@ parser.add_argument('--critic_weight_decay', type=float, default=0,
                     help="L2 regularisation constant for critic weights")
 
 parser.add_argument('--discount_factor', type=float, default=0.99, help='discount factor gamma')
-parser.add_argument('--scale_reward', type=float, default=20,
+parser.add_argument('--scale_reward', type=float, default=10000,
                     help="reward scaling humannoid_v1=20, humnanoid_rllab=10, other mujoco=5")
 parser.add_argument('--reparam', type=bool, default=True, help="True if reparameterization trick is applied")
 parser.add_argument('--rewarding', type=bool, default=False, help="Hindsight reward for each transition")
@@ -43,7 +43,7 @@ parser.add_argument('--num_layers', type=int, default=2, help='no of hidden laye
 parser.add_argument('--buffer_capacity', type=int, default=100000, help='buffer capacity')
 parser.add_argument('--sample_batch_size', type=int, default=256, help='number of samples from replay buffer')
 parser.add_argument('--max_time_steps', type=int, default=10000, help='max number of env timesteps per episodes')
-parser.add_argument('--num_episodes', type=int, default=10000000, help='number of episodes')
+parser.add_argument('--num_episodes', type=int, default=100000, help='number of episodes')
 parser.add_argument('--updates_per_step', type=int, default=1, help='updates per step')
 parser.add_argument('--save_iter', type=int, default=100, help='save model and buffer '
                                                                'after certain number of iteration')

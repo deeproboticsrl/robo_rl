@@ -6,7 +6,6 @@ import torch
 import torch.nn as nn
 from robo_rl.common import LinearQNetwork, LinearValueNetwork
 from robo_rl.common.utils import soft_update, hard_update
-from robo_rl.sac import GaussianPolicy
 
 
 def n_critics(state_dim, action_dim, hidden_dim, num_q):
@@ -17,16 +16,14 @@ def n_critics(state_dim, action_dim, hidden_dim, num_q):
 
 
 class SAC:
-    def __init__(self, action_dim, state_dim, hidden_dim, writer, squasher, optimizer, discount_factor=0.99,
+    def __init__(self, action_dim, state_dim, hidden_dim, writer, optimizer, discount_factor=0.99,
                  scale_reward=3, policy_lr=0.0003, critic_lr=0.0003, value_lr=0.0003,
                  reparam=True, target_update_interval=1, soft_update_tau=0.005,
                  td3_update_interval=100, deterministic=False, policy_weight_decay=0.001, critic_weight_decay=0.001,
-                 value_weight_decay=0.001,
-                 grad_clip=False, loss_clip=False, clip_val_grad=0.01, clip_val_loss=100,
-                 log_std_min=-20, log_std_max=-2):
+                 value_weight_decay=0.001, policy=None,
+                 grad_clip=False, loss_clip=False, clip_val_grad=0.01, clip_val_loss=100):
         self.writer = writer
         self.deterministic = deterministic
-        self.squasher = squasher
         self.action_dim = action_dim
         self.state_dim = state_dim
         self.hidden_dim = hidden_dim
@@ -49,13 +46,9 @@ class SAC:
         self.clip_val_grad = clip_val_grad
         self.clip_val_loss = clip_val_loss
 
-        self.log_std_min = log_std_min
-        self.log_std_max = log_std_max
-
         self.value = LinearValueNetwork(state_dim=self.state_dim, hidden_dim=self.hidden_dim)
         self.value_target = LinearValueNetwork(state_dim=self.state_dim, hidden_dim=self.hidden_dim)
-        self.policy = GaussianPolicy(state_dim=self.state_dim, action_dim=self.action_dim, hidden_dim=self.hidden_dim,
-                                     log_std_min=self.log_std_min, log_std_max=self.log_std_max)
+        self.policy = policy
         self.critics = n_critics(state_dim=self.state_dim, action_dim=self.action_dim, hidden_dim=self.hidden_dim,
                                  num_q=2)
         self.value.apply(nn_utils.xavier_initialisation)
@@ -224,5 +217,5 @@ class SAC:
 
         utils.print_heading('loading done')
 
-    def get_action(self, state, deterministic=False, evaluate=False):
-        return self.policy.get_action(state, self.squasher, deterministic=deterministic, evaluate=evaluate)
+    def get_action(self, state, **kwargs):
+        return self.policy.get_action(state, **kwargs)

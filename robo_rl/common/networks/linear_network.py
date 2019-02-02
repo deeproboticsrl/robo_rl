@@ -1,11 +1,11 @@
-import torch.nn as nn
-from robo_rl.common.utils.nn_utils import no_activation
-import torch.nn.functional as torchfunc
-from torch.distributions.categorical import Categorical
 import torch
+import torch.nn as nn
+import torch.nn.functional as torchfunc
+from robo_rl.common.utils.nn_utils import no_activation
+from torch.distributions.categorical import Categorical
+
 
 class LinearNetwork(nn.Module):
-
 
     def __init__(self, layers_size, final_layer_function, activation_function, is_layer_norm=False,
                  is_final_layer_norm=False, is_dropout=False, dropout_probability=0.5, bias=False):
@@ -49,7 +49,6 @@ class LinearNetwork(nn.Module):
 
         if self.is_dropout:
             self.dropout_layer = nn.AlphaDropout(p=dropout_probability)
-
 
     def forward(self, x):
         for i in range(len(self.linear_layers) - 1):
@@ -106,13 +105,12 @@ class LinearCategoricalNetwork(LinearNetwork):
         print(x)
         c = 0
         y = torch.Tensor(x.size())
-        categorical_obj = []
         for ith_action_dim in self.final_layer_dim:
             y[c: c + ith_action_dim] = torchfunc.softmax(x[c: c + ith_action_dim], dim=0)
-            c+= ith_action_dim
+            c += ith_action_dim
         return y
 
-    def sampled_forward(self,x):
+    def sampled_forward(self, x):
         x = super().forward(x)
         x = self.output_layer(x)
         print(x)

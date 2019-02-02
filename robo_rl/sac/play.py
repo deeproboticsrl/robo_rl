@@ -50,8 +50,7 @@ sac = SAC(action_dim=action_dim, state_dim=state_dim, hidden_dim=hidden_dim,
           td3_update_interval=args.td3_update_interval, squasher=squasher, policy_weight_decay=args.policy_weight_decay,
           critic_weight_decay=args.critic_weight_decay, value_weight_decay=args.value_weight_decay,
           grad_clip=args.grad_clip, loss_clip=args.loss_clip, clip_val_grad=args.clip_val_grad,
-          deterministic=args.deterministic, clip_val_loss=args.clip_val_loss, log_std_min=args.log_std_min,
-          log_std_max=args.log_std_max)
+          deterministic=args.deterministic, clip_val_loss=args.clip_val_loss)
 
 # actor_path = f"model/{args.env_name}/actor_periodic.pt"
 # actor_path = modeldir + logfile + "/actor_periodic.pt"

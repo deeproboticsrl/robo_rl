@@ -5,16 +5,16 @@ import numpy as np
 import torch
 from osim.env import ProstheticsEnv
 from robo_rl.common import Buffer
-from robo_rl.sac import SAC, TanhSquasher
-from tensorboardX import SummaryWriter
 from robo_rl.common.utils import gym_torchify
+from robo_rl.sac import SAC, TanhSquasher, GaussianPolicy
 from robo_rl.sac import get_sac_parser, get_logfile_name
+from tensorboardX import SummaryWriter
 from torch.optim import Adam
 
 optimizer = Adam
 
 parser = get_sac_parser()
-parser.add_argument('--env_name', default="Humanoid-v2")
+parser.add_argument('--env_name', default="MountainCarContinuous-v0")
 
 args = parser.parse_args()
 if args.env_name == "ProstheticsEnv":
@@ -44,15 +44,17 @@ writer = SummaryWriter(log_dir=logdir + logfile)
 
 squasher = TanhSquasher()
 
+policy = GaussianPolicy(state_dim=state_dim, action_dim=action_dim, hidden_dim=hidden_dim,
+                        log_std_min=args.log_std_min, log_std_max=args.log_std_max)
+
 sac = SAC(action_dim=action_dim, state_dim=state_dim, hidden_dim=hidden_dim,
           discount_factor=args.discount_factor, optimizer=optimizer, policy_lr=args.policy_lr, critic_lr=args.critic_lr,
           value_lr=args.value_lr, writer=writer, scale_reward=args.scale_reward, reparam=args.reparam,
           target_update_interval=args.target_update_interval, soft_update_tau=args.soft_update_tau,
-          td3_update_interval=args.td3_update_interval, squasher=squasher, policy_weight_decay=args.policy_weight_decay,
+          td3_update_interval=args.td3_update_interval, policy_weight_decay=args.policy_weight_decay,
           critic_weight_decay=args.critic_weight_decay, value_weight_decay=args.value_weight_decay,
           grad_clip=args.grad_clip, loss_clip=args.loss_clip, clip_val_grad=args.clip_val_grad,
-          deterministic=args.deterministic, clip_val_loss=args.clip_val_loss, log_std_min=args.log_std_min,
-          log_std_max=args.log_std_max)
+          deterministic=args.deterministic, clip_val_loss=args.clip_val_loss, policy=policy)
 
 buffer = Buffer(capacity=args.buffer_capacity)
 rewards = []
@@ -79,7 +81,7 @@ for cur_episode in range(args.num_episodes):
     episode_reward = 0
 
     while not done and timestep <= args.max_time_steps:
-        action = sac.get_action(state).detach()
+        action = sac.get_action(state,squasher=squasher, deterministic=False, evaluate=False).detach()
         observation, reward, done, _ = gym_torchify(env.step(action))
         sample = dict(state=state, action=action, reward=reward, next_state=observation, done=done)
         buffer.add(sample)
@@ -122,4 +124,3 @@ for cur_episode in range(args.num_episodes):
     #     sac.writer.add_histogram("critic1_" + name, param, cur_episode)
     # for name, param in sac.critics[1].named_parameters():
     #     sac.writer.add_histogram("critic2_" + name, param, cur_episode)
-
