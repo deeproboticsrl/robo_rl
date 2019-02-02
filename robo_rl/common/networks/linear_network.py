@@ -102,18 +102,17 @@ class LinearCategoricalNetwork(LinearNetwork):
     def forward(self, x):
         x = super().forward(x)
         x = self.output_layer(x)
-        print(x)
         c = 0
         y = torch.Tensor(x.size())
         for ith_action_dim in self.final_layer_dim:
-            y[c: c + ith_action_dim] = torchfunc.softmax(x[c: c + ith_action_dim], dim=0)
+            normalisation_constant = torch.sum(x[c: c + ith_action_dim])
+            y[c: c + ith_action_dim] = x[c: c + ith_action_dim]/normalisation_constant
             c += ith_action_dim
         return y
 
     def sampled_forward(self, x):
         x = super().forward(x)
         x = self.output_layer(x)
-        print(x)
         c = 0
         y = torch.Tensor(x.size())
         categorical_obj = []

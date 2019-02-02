@@ -81,7 +81,7 @@ for cur_episode in range(args.num_episodes):
     episode_reward = 0
 
     while not done and timestep <= args.max_time_steps:
-        action = sac.get_action(state,squasher=squasher, deterministic=False, evaluate=False).detach()
+        action = sac.policy.get_action(state, squasher=squasher, deterministic=False, evaluate=False).detach()
         observation, reward, done, _ = gym_torchify(env.step(action))
         sample = dict(state=state, action=action, reward=reward, next_state=observation, done=done)
         buffer.add(sample)
@@ -95,7 +95,8 @@ for cur_episode in range(args.num_episodes):
                 """
                 for k in batch_list_of_dicts[0].keys():
                     batch_dict_of_lists[k].append(sample[k])
-                sac.policy_update(batch_dict_of_lists, update_number=update_count)
+                sac.policy_update(batch_dict_of_lists, update_number=update_count, squasher=squasher,
+                                  reparam=sac.reparam, evaluate=True)
 
         episode_reward += reward
         state = observation

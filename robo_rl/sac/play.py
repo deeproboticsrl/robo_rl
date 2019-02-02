@@ -47,7 +47,7 @@ sac = SAC(action_dim=action_dim, state_dim=state_dim, hidden_dim=hidden_dim,
           discount_factor=args.discount_factor, optimizer=optimizer, policy_lr=args.policy_lr, critic_lr=args.critic_lr,
           value_lr=args.value_lr, writer=writer, scale_reward=args.scale_reward, reparam=args.reparam,
           target_update_interval=args.target_update_interval, soft_update_tau=args.soft_update_tau,
-          td3_update_interval=args.td3_update_interval, squasher=squasher, policy_weight_decay=args.policy_weight_decay,
+          td3_update_interval=args.td3_update_interval, policy_weight_decay=args.policy_weight_decay,
           critic_weight_decay=args.critic_weight_decay, value_weight_decay=args.value_weight_decay,
           grad_clip=args.grad_clip, loss_clip=args.loss_clip, clip_val_grad=args.clip_val_grad,
           deterministic=args.deterministic, clip_val_loss=args.clip_val_loss)
