@@ -66,7 +66,7 @@ class SAC:
 
         hard_update(target=self.value_target, original=self.value)
 
-    def policy_update(self, batch, update_number):
+    def policy_update(self, batch, update_number, **kwargs):
         mse_loss = nn.MSELoss()
         # target_clip_min = -self.scale_reward/(1-self.discount_factor)
         # target_clip_max = 0
@@ -93,8 +93,7 @@ class SAC:
         q1_val_loss = 0.5 * mse_loss(q1_buffer, q_hat_buffer.detach())
         q2_val_loss = 0.5 * mse_loss(q2_buffer, q_hat_buffer.detach())
 
-        policy_action, log_prob = self.policy.get_action(state_batch, squasher=self.squasher, reparam=self.reparam,
-                                                         evaluate=True)
+        policy_action, log_prob = self.policy.get_action(state_batch, **kwargs)
 
         # to calculate JV and Jpi state is sampled from buffer but action is sampled from policy
         # Min of 2 q value is used in eqn(6)
@@ -217,5 +216,3 @@ class SAC:
 
         utils.print_heading('loading done')
 
-    def get_action(self, state, **kwargs):
-        return self.policy.get_action(state, **kwargs)

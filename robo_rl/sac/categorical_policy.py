@@ -7,8 +7,8 @@ from torch.distributions.uniform import Uniform
 
 def gumbel_sample(shape):
     dist = Uniform(torch.Tensor([0]), torch.Tensor([1]))
-    u = dist.rsample(sample_shape=shape)
-    g = -torch.log(-torch.log(u))
+    u = dist.sample(sample_shape=shape)
+    g = -torch.log(-torch.log(u + 1e-10) + 1e-10)
     return g.squeeze()
 
 
@@ -31,16 +31,20 @@ class LinearCategoricalPolicy(LinearCategoricalNetwork):
     #  WITH GUMBEL-SOFTMAX
     # z= (log(πi) + gi)/τ
     def get_action(self, state, softmax_temperature=0.1):
+        # (batch size, state dim)
+        assert len(state.shape) == 2
         pi = self.forward(state)
         c = 0
         categorical_obj = []
         for ith_action_dim in self.action_dim:
-            sliced_pi = pi[c:c + ith_action_dim]
+            sliced_pi = pi[:, c:c + ith_action_dim]
             z = torch.add(torch.log(sliced_pi), gumbel_sample(sliced_pi.size()))
             z = z / softmax_temperature
-            soft_z = torchfunc.softmax(z, dim=0)
-            print(f"soft z :{soft_z}")
+            soft_z = torchfunc.softmax(z,dim=1)
             categorical_obj.append(Categorical(soft_z))  # categorical obj for sampling actions
             c += ith_action_dim
-        sampled_action = [x.sample() for x in categorical_obj]
-        return sampled_action
+        sampled_action = torch.Tensor([x.sample() for x in categorical_obj])
+        log_prob = torch.Tensor([x.log_prob(sampled_action) for x in categorical_obj])
+
+        # raise SystemExit
+        return sampled_action, log_prob

@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from robo_rl.common import Buffer
 from robo_rl.common.utils import gym_torchify
-from robo_rl.sac import SAC, NoSquasher, LinearCategoricalPolicy
+from robo_rl.sac import SAC, LinearCategoricalPolicy
 from robo_rl.sac import get_sac_parser, get_logfile_name
 from tensorboardX import SummaryWriter
 from torch.optim import Adam
@@ -24,7 +24,9 @@ env.seed(args.env_seed)
 torch.manual_seed(args.env_seed)
 np.random.seed(args.env_seed)
 
-action_dim = 1
+
+action_sizes = [3]
+action_dim = len(action_sizes)
 state_dim = 2  # (position, velocity)
 hidden_dim = [args.hidden_dim, args.hidden_dim]
 
@@ -38,14 +40,13 @@ logfile = get_logfile_name(args)
 os.makedirs(logdir, exist_ok=True)
 writer = SummaryWriter(log_dir=logdir + logfile)
 
-squasher = NoSquasher()
-policy = LinearCategoricalPolicy(state_dim=state_dim, action_dim=[action_dim], hidden_dim=hidden_dim)
+policy = LinearCategoricalPolicy(state_dim=state_dim, action_dim=action_sizes, hidden_dim=hidden_dim)
 
 sac = SAC(action_dim=action_dim, state_dim=state_dim, hidden_dim=hidden_dim,
           discount_factor=args.discount_factor, optimizer=optimizer, policy_lr=args.policy_lr, critic_lr=args.critic_lr,
           value_lr=args.value_lr, writer=writer, scale_reward=args.scale_reward, reparam=args.reparam,
           target_update_interval=args.target_update_interval, soft_update_tau=args.soft_update_tau,
-          td3_update_interval=args.td3_update_interval, squasher=squasher, policy_weight_decay=args.policy_weight_decay,
+          td3_update_interval=args.td3_update_interval, policy_weight_decay=args.policy_weight_decay,
           critic_weight_decay=args.critic_weight_decay, value_weight_decay=args.value_weight_decay,
           grad_clip=args.grad_clip, loss_clip=args.loss_clip, clip_val_grad=args.clip_val_grad,
           deterministic=args.deterministic, clip_val_loss=args.clip_val_loss, policy=policy)
@@ -75,8 +76,8 @@ for cur_episode in range(args.num_episodes):
     episode_reward = 0
 
     while not done and timestep <= args.max_time_steps:
-        action = sac.get_action(state).detach()
-        observation, reward, done, _ = gym_torchify(env.step(action))
+        action = sac.policy.get_action(state.unsqueeze(dim=0))[0].detach()
+        observation, reward, done, _ = gym_torchify(env.step(int(action.numpy())))
         sample = dict(state=state, action=action, reward=reward, next_state=observation, done=done)
         buffer.add(sample)
         if len(buffer) > args.sample_batch_size:
