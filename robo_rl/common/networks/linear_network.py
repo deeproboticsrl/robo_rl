@@ -104,9 +104,13 @@ class LinearCategoricalNetwork(LinearNetwork):
         x = self.output_layer(x)
         c = 0
         y = torch.Tensor(x.size())
+        # print(y.size())
         for ith_action_dim in self.final_layer_dim:
-            normalisation_constant = torch.sum(x[c: c + ith_action_dim])
-            y[c: c + ith_action_dim] = x[c: c + ith_action_dim]/normalisation_constant
+            # Normalisation for probability distribution
+            # print(torch.sum(x[:, c:c + ith_action_dim], dim=1))
+            normalisation_constant = torch.sum(x[:, c: c + ith_action_dim], dim=1).unsqueeze(dim=1)
+            # print(normalisation_constant.size(),x[:, c: c + ith_action_dim].size())
+            y[:, c: c + ith_action_dim] = x[:, c: c + ith_action_dim] / normalisation_constant
             c += ith_action_dim
         return y
 
@@ -120,5 +124,4 @@ class LinearCategoricalNetwork(LinearNetwork):
             y[c: c + ith_action_dim] = torchfunc.softmax(x[c: c + ith_action_dim], dim=0)
             categorical_obj.append(Categorical(y[c: c + ith_action_dim]))
             c += ith_action_dim
-
         return categorical_obj

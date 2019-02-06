@@ -97,6 +97,11 @@ class SAC:
 
         # to calculate JV and Jpi state is sampled from buffer but action is sampled from policy
         # Min of 2 q value is used in eqn(6)
+
+        # TODO remove this hack
+        if len(policy_action.size()) == 1:
+            # temporary fix for categorical policy
+            policy_action = policy_action.unsqueeze(dim=1)
         q1_current_policy = self.critics[0](torch.cat([state_batch, policy_action], 1))
         q2_current_policy = self.critics[1](torch.cat([state_batch, policy_action], 1))
 
