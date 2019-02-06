@@ -86,6 +86,8 @@ for cur_episode in range(args.num_episodes):
                                        softmax_temperature=softmax_temp_func(
                                            (softmax_temperature_init - cur_episode) / 1000))[0].detach()
         observation, reward, done, _ = gym_torchify(env.step(int(action.numpy())))
+        if args.render ==True:
+            env.render()
         sample = dict(state=state, action=action, reward=reward, next_state=observation, done=done)
         buffer.add(sample)
         if len(buffer) > args.sample_batch_size:
