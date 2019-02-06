@@ -78,6 +78,7 @@ for cur_episode in range(args.num_episodes):
     while not done and timestep <= args.max_time_steps:
         action = sac.policy.get_action(state.unsqueeze(dim=0))[0].detach()
         observation, reward, done, _ = gym_torchify(env.step(int(action.numpy())))
+        env.render()
         sample = dict(state=state, action=action, reward=reward, next_state=observation, done=done)
         buffer.add(sample)
         if len(buffer) > args.sample_batch_size:

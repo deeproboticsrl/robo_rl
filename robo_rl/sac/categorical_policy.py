@@ -45,5 +45,5 @@ class LinearCategoricalPolicy(LinearCategoricalNetwork):
             c += ith_action_dim
         sampled_action = torch.stack([x.sample() for x in categorical_obj]).float()
         sampled_action = sampled_action.view(-1)
-        log_prob = torch.stack([x.log_prob(sampled_action) for x in categorical_obj])
+        log_prob = torch.stack([x.log_prob(sampled_action) for x in categorical_obj]).view(-1,1)
         return sampled_action, log_prob
