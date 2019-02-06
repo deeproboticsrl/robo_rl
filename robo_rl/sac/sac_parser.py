@@ -49,7 +49,7 @@ parser.add_argument('--save_iter', type=int, default=100, help='save model and b
                                                                'after certain number of iteration')
 parser.add_argument('--test_interval', type=int, default=25, help="Number of episodes after which to test")
 parser.add_argument('--num_tests', type=int, default=50, help="Number of tests for evaluation")
-
+parser.add_argument('--render',type=bool, default=False,help="env render")
 
 def get_sac_parser():
     return parser

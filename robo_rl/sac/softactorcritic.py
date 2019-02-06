@@ -94,7 +94,6 @@ class SAC:
         q2_val_loss = 0.5 * mse_loss(q2_buffer, q_hat_buffer.detach())
 
         policy_action, log_prob = self.policy.get_action(state_batch, **kwargs)
-
         # to calculate JV and Jpi state is sampled from buffer but action is sampled from policy
         # Min of 2 q value is used in eqn(6)
 

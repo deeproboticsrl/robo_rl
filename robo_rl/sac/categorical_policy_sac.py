@@ -20,11 +20,11 @@ args = parser.parse_args()
 env = gym.make(args.env_name)
 
 # seeding the random value generator
-env.seed(args.env_seed)
+env.seed(args.env_seed+1)
 torch.manual_seed(args.env_seed)
 np.random.seed(args.env_seed)
 
-
+# TODO take action_sizes/dim from env
 action_sizes = [3]
 action_dim = len(action_sizes)
 state_dim = 2  # (position, velocity)
@@ -78,6 +78,8 @@ for cur_episode in range(args.num_episodes):
     while not done and timestep <= args.max_time_steps:
         action = sac.policy.get_action(state.unsqueeze(dim=0))[0].detach()
         observation, reward, done, _ = gym_torchify(env.step(int(action.numpy())))
+        if args.render is True:
+            env.render()
         sample = dict(state=state, action=action, reward=reward, next_state=observation, done=done)
         buffer.add(sample)
         if len(buffer) > args.sample_batch_size:

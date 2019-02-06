@@ -35,15 +35,22 @@ class LinearCategoricalPolicy(LinearCategoricalNetwork):
         assert len(state.shape) == 2
         pi = self.forward(state)
         c = 0
+
         categorical_obj = []
         for ith_action_dim in self.action_dim:
             sliced_pi = pi[:, c:c + ith_action_dim]
             z = torch.add(torch.log(sliced_pi), gumbel_sample(sliced_pi.size()))
+
+            # print(f"log: {torch.log(sliced_pi)}, ")
             z = z / softmax_temperature
-            soft_z = torchfunc.softmax(z, dim=1)
+            soft_z = torchfunc.softmax(z, dim=-1)
+
+            # print(f"soft_z: {soft_z}, {soft_z.size()},z:{z},{z.size()}, sliced_pi :{sliced_pi}")
             categorical_obj.append(Categorical(soft_z))  # categorical obj for sampling actions
             c += ith_action_dim
+
         sampled_action = torch.stack([x.sample() for x in categorical_obj]).float()
         sampled_action = sampled_action.view(-1)
-        log_prob = torch.stack([x.log_prob(sampled_action) for x in categorical_obj])
+        log_prob = torch.stack([x.log_prob(sampled_action) for x in categorical_obj]).view(-1,1)
+        # print(sampled_action.size(),log_prob.size())
         return sampled_action, log_prob

@@ -3,7 +3,7 @@ import os
 import gym
 import numpy as np
 import torch
-from osim.env import ProstheticsEnv
+# from osim.env import ProstheticsEnv
 from robo_rl.common.utils import gym_torchify
 from robo_rl.sac import SAC, TanhSquasher
 from robo_rl.sac import get_sac_parser, get_logfile_name
@@ -16,11 +16,11 @@ parser = get_sac_parser()
 parser.add_argument('--env_name', default="Humanoid-v2")
 
 args = parser.parse_args()
-if args.env_name == "ProstheticsEnv":
-    env = ProstheticsEnv()
-else:
+# if args.env_name == "ProstheticsEnv":
+#     env = ProstheticsEnv()
+# else:
     # Need to normalize the action_space
-    env = gym.make(args.env_name)
+env = gym.make(args.env_name)
 
 env.seed(args.env_seed)
 torch.manual_seed(args.env_seed)
