@@ -20,11 +20,10 @@ args = parser.parse_args()
 env = gym.make(args.env_name)
 
 # seeding the random value generator
-env.seed(args.env_seed+1)
+env.seed(args.env_seed)
 torch.manual_seed(args.env_seed)
 np.random.seed(args.env_seed)
 
-# TODO take action_sizes/dim from env
 action_sizes = [3]
 action_dim = len(action_sizes)
 state_dim = 2  # (position, velocity)
@@ -67,6 +66,13 @@ def ld_to_dl(batch_list_of_dicts):
     return batch_dict_of_lists
 
 
+softmax_temperature_init = args.num_episodes
+
+
+def softmax_temp_func(x):
+    return x * x
+
+
 for cur_episode in range(args.num_episodes):
     print(f"Starting episode {cur_episode}")
 
@@ -76,10 +82,10 @@ for cur_episode in range(args.num_episodes):
     episode_reward = 0
 
     while not done and timestep <= args.max_time_steps:
-        action = sac.policy.get_action(state.unsqueeze(dim=0))[0].detach()
+        action = sac.policy.get_action(state.unsqueeze(dim=0),
+                                       softmax_temperature=softmax_temp_func(
+                                           (softmax_temperature_init - cur_episode) / 1000))[0].detach()
         observation, reward, done, _ = gym_torchify(env.step(int(action.numpy())))
-        if args.render is True:
-            env.render()
         sample = dict(state=state, action=action, reward=reward, next_state=observation, done=done)
         buffer.add(sample)
         if len(buffer) > args.sample_batch_size:

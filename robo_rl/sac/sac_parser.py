@@ -15,7 +15,7 @@ parser.add_argument('--critic_weight_decay', type=float, default=0,
                     help="L2 regularisation constant for critic weights")
 
 parser.add_argument('--discount_factor', type=float, default=0.99, help='discount factor gamma')
-parser.add_argument('--scale_reward', type=float, default=10000,
+parser.add_argument('--scale_reward', type=float, default=5,
                     help="reward scaling humannoid_v1=20, humnanoid_rllab=10, other mujoco=5")
 parser.add_argument('--reparam', type=bool, default=True, help="True if reparameterization trick is applied")
 parser.add_argument('--rewarding', type=bool, default=False, help="Hindsight reward for each transition")

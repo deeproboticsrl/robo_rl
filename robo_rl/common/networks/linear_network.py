@@ -100,7 +100,6 @@ class LinearCategoricalNetwork(LinearNetwork):
         self.final_layer_dim = layers_size[-1]
 
     def forward(self, x):
-        # x should be (batch, dim)
         x = super().forward(x)
         x = self.output_layer(x)
         c = 0
@@ -109,10 +108,8 @@ class LinearCategoricalNetwork(LinearNetwork):
         for ith_action_dim in self.final_layer_dim:
             # Normalisation for probability distribution
             # print(torch.sum(x[:, c:c + ith_action_dim], dim=1))
+            # print(normalisation_constant.size(),x[:, c: c + ith_action_dim].size())
             y[:, c: c + ith_action_dim] = torchfunc.softmax(x[:, c: c + ith_action_dim], dim=1)
-            # print(f"{normalisation_constant.size()},{x[:, c: c + ith_action_dim].size()}")
-
-            # print(f"y : {y}")
             c += ith_action_dim
         return y
 
